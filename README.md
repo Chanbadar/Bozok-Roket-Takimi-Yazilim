@@ -31,14 +31,22 @@ TEKNOFEST Orta İrtifa Roket Yarışması gereksinimlerine ve telemetri standart
 ## 🛠️ Kurulum ve Çalıştırma
 
 ### 1. Hızlı Başlatma (Windows)
-Proje kök dizinindeki `run.bat` dosyasına çift tıklayarak doğrudan çalıştırabilirsiniz.
+Proje kök dizinindeki `run.bat` dosyasına çift tıklayın.  
+*(Eğer `.venv` ortamı yoksa `run.bat` otomatik olarak sanal ortamı kurar, `requirements.txt` bağımlılıklarını yükler ve arayüzü başlatır).*
 
-### 2. Terminal Üzerinden Çalıştırma
+### 2. Manuel Kurulum (Terminal / PowerShell)
+Projeyi yeni `pull` veya `clone` ettiyseniz:
 ```powershell
-# Sanal ortamı aktif edin:
+# 1. Sanal ortamı oluşturun:
+python -m venv .venv
+
+# 2. Sanal ortamı aktif edin:
 .\.venv\Scripts\activate
 
-# Uygulamayı başlatın:
+# 3. Gerekli kütüphaneleri yükleyin:
+pip install -r requirements.txt
+
+# 4. Uygulamayı başlatın:
 python app.py
 ```
 

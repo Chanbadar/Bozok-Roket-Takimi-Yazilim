@@ -15,10 +15,10 @@ class FlightSimulator:
         self.update_callback = update_callback
         self.is_running = False
 
-        # Başlangıç Konumu (Örnek: Aksaray Roket Atış Alanı / Hisar)
-        self.base_lat = 38.3687
-        self.base_lng = 34.0370
-        self.base_altitude = 980.0  # Rampa rakımı (m)
+        # Başlangıç Konumu (Yozgat Bozok Üniversitesi Kampüsü)
+        self.base_lat = 39.779593
+        self.base_lng = 34.799597
+        self.base_altitude = 1050.0  # Rampa rakımı (m)
 
         # Uçuş Parametreleri
         self.target_apogee = 3000.0  # Hedef irtifa (m)

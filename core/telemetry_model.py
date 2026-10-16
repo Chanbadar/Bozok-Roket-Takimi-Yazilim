@@ -38,16 +38,16 @@ class RocketTelemetry:
     pitch: float = 90.0
     yaw: float = 0.0
 
-    # Çift GPS Verileri
-    neo_m9n_lat: float = 39.925533
-    neo_m9n_lng: float = 32.866287
-    neo_m9n_alt: float = 900.0
+    # Çift GPS Verileri (Yozgat Bozok Üniversitesi Kampüsü)
+    neo_m9n_lat: float = 39.779593
+    neo_m9n_lng: float = 34.799597
+    neo_m9n_alt: float = 1050.0
     neo_m9n_satellites: int = 0
     neo_m9n_status: str = "NO FIX"
 
-    quectel_lat: float = 39.925533
-    quectel_lng: float = 32.866287
-    quectel_alt: float = 900.0
+    quectel_lat: float = 39.779593
+    quectel_lng: float = 34.799597
+    quectel_alt: float = 1050.0
     quectel_satellites: int = 0
     quectel_status: str = "NO FIX"
 
@@ -81,9 +81,9 @@ class PayloadTelemetry:
     lsm6_int_z: float = 0.0
 
     # Görev Yükü GPS
-    latitude: float = 39.925533
-    longitude: float = 32.866287
-    altitude: float = 900.0
+    latitude: float = 39.779593
+    longitude: float = 34.799597
+    altitude: float = 1050.0
     satellites: int = 0
     is_separated: bool = False
 

@@ -23,12 +23,12 @@ class FallbackRadarMap(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(280, 280)
-        self.base_lat = 38.3687
-        self.base_lng = 34.0370
-        self.rocket_lat = 38.3687
-        self.rocket_lng = 34.0370
-        self.payload_lat = 38.3687
-        self.payload_lng = 34.0370
+        self.base_lat = 39.779593
+        self.base_lng = 34.799597
+        self.rocket_lat = 39.779593
+        self.rocket_lng = 34.799597
+        self.payload_lat = 39.779593
+        self.payload_lng = 34.799597
         self.rocket_trail = []
         self.payload_trail = []
         self.zoom = 50000.0  # Derece başına piksel ölçeği
@@ -187,17 +187,19 @@ class MapWidget(QFrame):
         <body>
             <div id="map"></div>
             <script>
-                var map = L.map('map').setView([38.3687, 34.0370], 14);
+                var map = L.map('map').setView([39.779593, 34.799597], 15);
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     maxZoom: 19,
                     attribution: 'OpenStreetMap'
                 }).addTo(map);
 
-                var rocketMarker = L.circleMarker([38.3687, 34.0370], {
+                var padMarker = L.marker([39.779593, 34.799597]).addTo(map).bindPopup("<b>BOZOK RAMPASI</b>");
+
+                var rocketMarker = L.circleMarker([39.779593, 34.799597], {
                     color: '#00F0FF', fillColor: '#00F0FF', fillOpacity: 0.9, radius: 8
                 }).addTo(map).bindPopup("<b>ROKET</b>");
 
-                var payloadMarker = L.circleMarker([38.3687, 34.0370], {
+                var payloadMarker = L.circleMarker([39.779593, 34.799597], {
                     color: '#FF6B4A', fillColor: '#FF6B4A', fillOpacity: 0.9, radius: 7
                 }).addTo(map).bindPopup("<b>GÖREV YÜKÜ</b>");
 

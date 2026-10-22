@@ -3,6 +3,8 @@ Bozok Roket Takımı - Seri Port İletişim Yöneticisi
 XBee / LoRa / RFD900 veya USB Seri port üzerinden telemetri okur ve ayrıştırır.
 """
 
+import math
+import re
 import threading
 import time
 from typing import Callable, List, Optional
@@ -72,15 +74,42 @@ class SerialManager:
     def _parse_line(self, line: str):
         """
         Gelen satırı ayrıştırır.
-        Desteklenen standart format:
-        ROKET,paket_id,irtifa,hiz,dps_p,bmp_p,acc_x,acc_y,acc_z,gyr_x,gyr_y,gyr_z,lat,lng,sat,pil,durum
-        veya
-        virgülle ayrılmış standart TEKNOFEST paket dizisi.
+        1. Standart TEKNOFEST virgülle ayrılmış paket formatı (>=15 eleman)
+        2. GY-85 test çıktısı formatı:
+           't=13032 ms | A(g): -0.019 -0.055 0.749 | toplam=0.751 | G(dps): nan nan nan | ...'
+        3. 3 veya 6 elemanlı basit CSV ivme/gyro verisi
         """
         try:
+            # 1. GY-85 Test Formatı Kontrolü
+            if "A(g):" in line:
+                a_match = re.search(r"A\(g\):\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)", line)
+                if a_match:
+                    self.rocket_data.acc_x = float(a_match.group(1))
+                    self.rocket_data.acc_y = float(a_match.group(2))
+                    self.rocket_data.acc_z = float(a_match.group(3))
+                    self.rocket_data.total_acc = math.sqrt(
+                        self.rocket_data.acc_x ** 2 +
+                        self.rocket_data.acc_y ** 2 +
+                        self.rocket_data.acc_z ** 2
+                    )
+
+                g_match = re.search(r"G\(dps\):\s*(\S+)\s+(\S+)\s+(\S+)", line)
+                if g_match:
+                    val_x = g_match.group(1)
+                    val_y = g_match.group(2)
+                    val_z = g_match.group(3)
+                    self.rocket_data.gyr_x = 0.0 if "nan" in val_x else float(val_x)
+                    self.rocket_data.gyr_y = 0.0 if "nan" in val_y else float(val_y)
+                    self.rocket_data.gyr_z = 0.0 if "nan" in val_z else float(val_z)
+
+                self.rocket_data.packet_id += 1
+                if self.data_callback:
+                    self.data_callback(self.rocket_data, self.payload_data)
+                return
+
+            # 2. Virgülle Ayrılmış Format
             parts = [p.strip() for p in line.split(",")]
             if len(parts) >= 15:
-                # Örnek CSV Parser
                 self.rocket_data.packet_id = int(parts[0]) if parts[0].isdigit() else self.rocket_data.packet_id + 1
                 self.rocket_data.altitude = float(parts[1])
                 self.rocket_data.vertical_speed = float(parts[2])
@@ -89,6 +118,9 @@ class SerialManager:
                 self.rocket_data.acc_x = float(parts[5])
                 self.rocket_data.acc_y = float(parts[6])
                 self.rocket_data.acc_z = float(parts[7])
+                self.rocket_data.total_acc = math.sqrt(
+                    self.rocket_data.acc_x ** 2 + self.rocket_data.acc_y ** 2 + self.rocket_data.acc_z ** 2
+                )
                 self.rocket_data.gyr_x = float(parts[8])
                 self.rocket_data.gyr_y = float(parts[9])
                 self.rocket_data.gyr_z = float(parts[10])
@@ -101,6 +133,20 @@ class SerialManager:
 
                 if self.data_callback:
                     self.data_callback(self.rocket_data, self.payload_data)
-        except Exception as err:
-            # Format uyuşmazlığı durumunda logla
+            elif 3 <= len(parts) < 15:
+                # Basit ivme / gyro formatı: acc_x, acc_y, acc_z (, gyr_x, gyr_y, gyr_z)
+                self.rocket_data.acc_x = float(parts[0])
+                self.rocket_data.acc_y = float(parts[1])
+                self.rocket_data.acc_z = float(parts[2])
+                self.rocket_data.total_acc = math.sqrt(
+                    self.rocket_data.acc_x ** 2 + self.rocket_data.acc_y ** 2 + self.rocket_data.acc_z ** 2
+                )
+                if len(parts) >= 6:
+                    self.rocket_data.gyr_x = float(parts[3])
+                    self.rocket_data.gyr_y = float(parts[4])
+                    self.rocket_data.gyr_z = float(parts[5])
+                self.rocket_data.packet_id += 1
+                if self.data_callback:
+                    self.data_callback(self.rocket_data, self.payload_data)
+        except Exception:
             pass

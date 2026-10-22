@@ -3,6 +3,18 @@ Bozok Roket Takımı - Ana Pencere (Main Window)
 Tüm bileşenleri (Header, Roket Verileri, Görev Yükü, Canlı Grafikler, Harita ve Durum Çubuğu) bir araya getirir.
 """
 
+import os
+import sys
+
+# core modüllerinin her koşulda import edilebilmesi için telemetry yolunu ekle
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+_BASE_DIR = os.path.abspath(os.path.join(_CURRENT_DIR, ".."))
+_TELEMETRY_DIR = os.path.join(_BASE_DIR, "telemetry")
+if _BASE_DIR not in sys.path:
+    sys.path.insert(0, _BASE_DIR)
+if _TELEMETRY_DIR not in sys.path:
+    sys.path.insert(0, _TELEMETRY_DIR)
+
 from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (

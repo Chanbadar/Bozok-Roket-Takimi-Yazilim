@@ -121,6 +121,10 @@ class RealTimeChartsWidget(QFrame):
     def append_data(self, r: RocketTelemetry, p: PayloadTelemetry):
         """Yeni telemetri paketini kuyruklara ekler ve eğrileri günceller."""
         t = r.flight_time
+        # Zaman ekseninin (X ekseni) donmasını ve Y eksenine yapışmasını önleyen koruma:
+        if self.time_data and t <= self.time_data[-1]:
+            t = round(self.time_data[-1] + 0.05, 3)
+
         self.time_data.append(t)
         self.alt_data.append(r.altitude)
         self.speed_data.append(r.vertical_speed)

@@ -21,6 +21,7 @@ class SerialManager:
         self.is_connected = False
         self.is_running = False
         self.thread: Optional[threading.Thread] = None
+        self.start_time: Optional[float] = None
 
         self.rocket_data = RocketTelemetry()
         self.payload_data = PayloadTelemetry()
@@ -37,8 +38,11 @@ class SerialManager:
             self.serial_port = serial.Serial(port=port_name, baudrate=baudrate, timeout=1.0)
             self.is_connected = True
             self.is_running = True
+            self.start_time = time.time()
+            self.rocket_data.flight_time = 0.0
             self.thread = threading.Thread(target=self._read_loop, daemon=True)
             self.thread.start()
+            print(f"[Seri Port] {port_name} ({baudrate} baud) başarıyla bağlandı.")
             return True
         except Exception as e:
             print(f"[Seri Port Hatası] {port_name} bağlanamadı: {e}")
@@ -54,8 +58,10 @@ class SerialManager:
             except Exception:
                 pass
         self.is_connected = False
+        self.start_time = None
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=1.0)
+        print("[Seri Port] Bağlantı kesildi.")
 
     def _read_loop(self):
         """Sürekli gelen telemetri satırlarını okur."""
@@ -74,15 +80,28 @@ class SerialManager:
     def _parse_line(self, line: str):
         """
         Gelen satırı ayrıştırır.
-        1. Standart TEKNOFEST virgülle ayrılmış paket formatı (>=15 eleman)
-        2. GY-85 test çıktısı formatı:
-           't=13032 ms | A(g): -0.019 -0.055 0.749 | toplam=0.751 | G(dps): nan nan nan | ...'
+        1. GY-85 veya benzeri test formatı:
+           't=13032 ms | A(g): -0.019 -0.055 0.749 | toplam=0.751 | G(dps): nan nan nan'
+           (virgüllü veya boşluklu)
+        2. Standart TEKNOFEST virgülle ayrılmış paket formatı (>=15 eleman)
         3. 3 veya 6 elemanlı basit CSV ivme/gyro verisi
         """
         try:
-            # 1. GY-85 Test Formatı Kontrolü
-            if "A(g):" in line:
-                a_match = re.search(r"A\(g\):\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)", line)
+            if self.start_time is None:
+                self.start_time = time.time()
+
+            # Zaman damgası takibi: Satırda t=... ms varsa onu al, yoksa geçen süreyi hesapla
+            t_match = re.search(r"t=(\d+)\s*ms", line)
+            if t_match:
+                self.rocket_data.flight_time = round(int(t_match.group(1)) / 1000.0, 3)
+            else:
+                self.rocket_data.flight_time = round(time.time() - self.start_time, 2)
+
+            self.rocket_data.timestamp = time.time()
+
+            # 1. GY-85 / İvmeölçer Etiketli Format Kontrolü (Virgül veya boşluk ayrımını destekler)
+            if "A(g):" in line or "A:" in line:
+                a_match = re.search(r"A(?:\(g\))?:\s*([-\d.]+)[,\s]+([-\d.]+)[,\s]+([-\d.]+)", line)
                 if a_match:
                     self.rocket_data.acc_x = float(a_match.group(1))
                     self.rocket_data.acc_y = float(a_match.group(2))
@@ -93,11 +112,11 @@ class SerialManager:
                         self.rocket_data.acc_z ** 2
                     )
 
-                g_match = re.search(r"G\(dps\):\s*(\S+)\s+(\S+)\s+(\S+)", line)
+                g_match = re.search(r"G(?:\(dps\))?:\s*([-\d.nanNAN]+)[,\s]+([-\d.nanNAN]+)[,\s]+([-\d.nanNAN]+)", line)
                 if g_match:
-                    val_x = g_match.group(1)
-                    val_y = g_match.group(2)
-                    val_z = g_match.group(3)
+                    val_x = g_match.group(1).lower()
+                    val_y = g_match.group(2).lower()
+                    val_z = g_match.group(3).lower()
                     self.rocket_data.gyr_x = 0.0 if "nan" in val_x else float(val_x)
                     self.rocket_data.gyr_y = 0.0 if "nan" in val_y else float(val_y)
                     self.rocket_data.gyr_z = 0.0 if "nan" in val_z else float(val_z)
@@ -107,8 +126,8 @@ class SerialManager:
                     self.data_callback(self.rocket_data, self.payload_data)
                 return
 
-            # 2. Virgülle Ayrılmış Format
-            parts = [p.strip() for p in line.split(",")]
+            # 2. Virgülle Ayrılmış Formatlar
+            parts = [p.strip() for p in line.split(",") if p.strip()]
             if len(parts) >= 15:
                 self.rocket_data.packet_id = int(parts[0]) if parts[0].isdigit() else self.rocket_data.packet_id + 1
                 self.rocket_data.altitude = float(parts[1])
@@ -148,5 +167,5 @@ class SerialManager:
                 self.rocket_data.packet_id += 1
                 if self.data_callback:
                     self.data_callback(self.rocket_data, self.payload_data)
-        except Exception:
-            pass
+        except Exception as err:
+            print(f"[Telemetri Ayrıştırma Uyarısı]: {err} | Satır: '{line}'")

@@ -3,6 +3,18 @@ Bozok Roket Takımı - Ana Pencere (Main Window)
 Tüm bileşenleri (Header, Roket Verileri, Görev Yükü, Canlı Grafikler, Harita ve Durum Çubuğu) bir araya getirir.
 """
 
+import os
+import sys
+
+# core modüllerinin her koşulda import edilebilmesi için telemetry yolunu ekle
+_CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+_BASE_DIR = os.path.abspath(os.path.join(_CURRENT_DIR, ".."))
+_TELEMETRY_DIR = os.path.join(_BASE_DIR, "telemetry")
+if _BASE_DIR not in sys.path:
+    sys.path.insert(0, _BASE_DIR)
+if _TELEMETRY_DIR not in sys.path:
+    sys.path.insert(0, _TELEMETRY_DIR)
+
 from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
@@ -36,6 +48,7 @@ class MainWindow(QMainWindow):
         # Güncel Telemetri
         self.current_rocket = RocketTelemetry()
         self.current_payload = PayloadTelemetry()
+        self._new_packet_received = False
 
         self._init_ui()
         self._setup_timers()
@@ -131,6 +144,8 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Port Hatası", "Lütfen geçerli bir seri port seçin.")
             return
 
+        self.charts_widget.clear()
+        self._new_packet_received = False
         success = self.serial_mgr.connect(port, baud)
         if success:
             self.header_bar.set_connected(True)
@@ -140,11 +155,13 @@ class MainWindow(QMainWindow):
     def _handle_disconnect(self):
         self.serial_mgr.disconnect()
         self.header_bar.set_connected(False)
+        self._new_packet_received = False
 
     def _handle_simulation_toggle(self, start: bool):
         if start:
             self.charts_widget.clear()
             self.simulator.reset()
+            self._new_packet_received = False
             self.sim_timer.start()
         else:
             self.sim_timer.stop()
@@ -163,6 +180,7 @@ class MainWindow(QMainWindow):
     def _on_telemetry_received(self, r: RocketTelemetry, p: PayloadTelemetry):
         self.current_rocket = r
         self.current_payload = p
+        self._new_packet_received = True
         if self.data_logger.is_logging:
             self.data_logger.log_telemetry(r, p)
 
@@ -178,10 +196,11 @@ class MainWindow(QMainWindow):
         # Durum Çubuğunu güncelle
         self.flight_state_widget.set_state(r.flight_state)
 
-        # Grafikleri güncelle
-        if r.packet_id > 0:
+        # Grafikleri güncelle (Sadece yeni telemetri paketi ulaştığında ekle)
+        if self._new_packet_received and r.packet_id > 0:
             self.charts_widget.append_data(r, p)
             self.map_widget.update_gps(r.neo_m9n_lat, r.neo_m9n_lng, p.latitude, p.longitude)
+            self._new_packet_received = False
 
     def closeEvent(self, event):
         """Pencere kapanırken seri port ve kayıtları güvenle kapatır."""

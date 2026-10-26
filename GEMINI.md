@@ -20,3 +20,35 @@ Kullanıcı commit mesajı, isim önerisi veya push hazırlığı istediğinde *
   * *Örnek:* `chore(deps): add pyqtgraph and pyserial dependencies`
 * **`refactor:`**: Kodun çalışmasını değiştirmeden yapılan mimari temizlik ve iyileştirmelerde.  
   * *Örnek:* `refactor(core): streamline serial packet parsing logic`
+
+---
+
+## 3. Bozok Roket Takımı - Yazılım Geliştirme ve Git İş Akışı Rehberi
+
+Her zaman bu repoda aşağıdaki kurallara ve adımlara tam uyulmalıdır:
+
+1. **Yeni Bir Göreve Başlarken**:
+   - Ana klasörde bulunulduğundan emin olunur.
+   - Güncel kod çekilir ve `develop` dalı üzerinden görev dalı (`feature/...`) açılır:
+     ```bash
+     git checkout develop
+     git pull origin develop
+     git checkout -b feature/gorev-adi
+     ```
+
+2. **Kod Yazma ve Düzenleme**:
+   - Kodlar her zaman ilgili modül klasörünün altına eklenir (örn: Yer İstasyonu için `2_Ground_Control/`, Uçuş Bilgisayarı için `1_Flight_Computer/` vb.).
+
+3. **Kodları GitHub'a Gönderme (Commit & Push)**:
+   - Değişiklikler stage edilir ve Conventional Commits standardında mesajla commit atılır:
+     ```bash
+     git add .
+     git commit -m "feat(modul-adi): yapılan işin kısa özeti"
+     ```
+   - Kullanıcıdan açık push onayı alındıktan sonra branch `origin`e gönderilir:
+     ```bash
+     git push -u origin feature/gorev-adi
+     ```
+
+4. **Pull Request (PR) Aşaması**:
+   - Push işlemi tamamlandıktan sonra kullanıcıya `develop` dalına Pull Request açabilmesi için GitHub bağlantısı sunulur.

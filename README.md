@@ -31,22 +31,25 @@ TEKNOFEST Orta İrtifa Roket Yarışması gereksinimlerine ve telemetri standart
 ## 🛠️ Kurulum ve Çalıştırma
 
 ### 1. Hızlı Başlatma (Windows)
-Proje kök dizinindeki `run.bat` dosyasına çift tıklayın.  
-*(Eğer `.venv` ortamı yoksa `run.bat` otomatik olarak sanal ortamı kurar, `requirements.txt` bağımlılıklarını yükler ve arayüzü başlatır).*
+Proje kök dizinindeki veya `2_Ground_Control/` altındaki `run.bat` dosyasına çift tıklayın.  
+*(Eğer `.venv` ortamı yoksa veya eksik kütüphaneler varsa `run.bat` otomatik olarak sanal ortamı kurar, `requirements.txt` bağımlılıklarını eksiksiz yükler ve yer istasyonunu başlatır).*
 
 ### 2. Manuel Kurulum (Terminal / PowerShell)
 Projeyi yeni `pull` veya `clone` ettiyseniz:
 ```powershell
-# 1. Sanal ortamı oluşturun:
+# 1. 2_Ground_Control dizinine geçin:
+cd 2_Ground_Control
+
+# 2. Sanal ortamı oluşturun:
 python -m venv .venv
 
-# 2. Sanal ortamı aktif edin:
+# 3. Sanal ortamı aktif edin:
 .\.venv\Scripts\activate
 
-# 3. Gerekli kütüphaneleri yükleyin:
+# 4. Gerekli kütüphaneleri yükleyin:
 pip install -r requirements.txt
 
-# 4. Uygulamayı başlatın:
+# 5. Uygulamayı başlatın:
 python app.py
 ```
 
@@ -55,22 +58,26 @@ python app.py
 ## 📁 Proje Mimarisi
 ```
 Bozok-Roket-Takimi-Yazilim/
-├── app.py                      # Ana başlatıcı (High-DPI optimize)
-├── run.bat                     # Windows çift-tık başlatıcı
-├── requirements.txt            # Python bağımlılıkları (PySide6, PyQtGraph vb.)
-├── core/
-│   ├── telemetry_model.py      # Roket & Görev Yükü veri sınıfları
-│   ├── flight_simulator.py     # Gerçekçi roket uçuş simülatörü
-│   ├── serial_manager.py       # Seri port (XBee/LoRa) dinleme thread'i
-│   ├── data_logger.py          # CSV uçuş kayıtçısı
-│   └── referee_transmitter.py  # TEKNOFEST Hakem İstasyonu haberleşmesi
-└── ui/
-    ├── main_window.py          # Ana pencere ve splitter düzeni
-    ├── styles.py               # Havacılık/Uzay koyu tema (QSS)
-    └── components/
-        ├── header_bar.py       # Port/Baud/Simülasyon üst kontrol barı
-        ├── telemetry_panel.py  # Roket & Görev Yükü telemetri kartları
-        ├── real_time_charts.py # PyQtGraph canlı grafik panelleri
-        ├── map_widget.py       # Canlı GPS harita ve radar bileşeni
-        └── flight_state_widget.py # Uçuş aşamaları göstergesi
+├── run.bat                     # Kök başlatıcı (2_Ground_Control'e yönlendirir)
+├── requirements.txt            # Python bağımlılıkları (PySide6-Essentials, PyQtGraph vb.)
+└── 2_Ground_Control/           # 2. Takım: Yer İstasyonu Yazılımı
+    ├── app.py                  # Yer İstasyonu başlatıcı
+    ├── run.bat                 # Otomatik kurulum ve başlatma betiği
+    ├── requirements.txt        # Takım içi bağımlılık dosyası
+    ├── telemetry/
+    │   └── core/
+    │       ├── telemetry_model.py      # Roket & Görev Yükü veri modelleri
+    │       ├── flight_simulator.py     # Gerçekçi roket uçuş simülatörü
+    │       ├── serial_manager.py       # Seri port (XBee/LoRa/USB) okuyucu & parser
+    │       ├── data_logger.py          # CSV uçuş kaydedici
+    │       └── referee_transmitter.py  # TEKNOFEST Hakem İstasyonu haberleşmesi
+    └── ui/
+        ├── main_window.py      # Ana pencere
+        ├── styles.py           # Havacılık/Uzay koyu tema (QSS)
+        └── components/
+            ├── header_bar.py           # Port/Baud/Simülasyon kontrol barı
+            ├── telemetry_panel.py      # Telemetri veri kartları
+            ├── real_time_charts.py     # Canlı PyQtGraph grafik panelleri
+            ├── map_widget.py           # Canlı GPS harita ve radar
+            └── flight_state_widget.py  # Uçuş durum göstergesi
 ```

@@ -66,8 +66,9 @@ class HeaderBar(QWidget):
 
         # Port Yenile Butonu
         self.refresh_ports_btn = QPushButton("🔄")
+        self.refresh_ports_btn.setObjectName("RefreshPortsButton")
         self.refresh_ports_btn.setToolTip("Port listesini yenile")
-        self.refresh_ports_btn.setFixedWidth(34)
+        self.refresh_ports_btn.setFixedSize(31, 31)
         layout.addWidget(self.refresh_ports_btn)
 
         # Baudrate Seçimi

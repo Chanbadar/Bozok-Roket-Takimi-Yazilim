@@ -5,6 +5,7 @@ XBee / LoRa / RFD900 veya USB Seri port üzerinden telemetri okur ve ayrıştır
 
 import math
 import re
+import struct
 import threading
 import time
 from typing import Callable, List, Optional
@@ -12,6 +13,17 @@ import serial
 import serial.tools.list_ports
 
 from core.telemetry_model import RocketTelemetry, PayloadTelemetry
+
+# --- İkili (binary) GY-85 paket formatı ---
+# [0xAA 0xAA] + 10 x int16 (little-endian) = 22 bayt
+#   0-2: İvme X/Y/Z (ADXL345 ham)    3-5: Jiroskop X/Y/Z (ITG3205 ham)
+#   6-8: Pusula X/Y/Z (HMC5883L ham) 9  : Sonlandırıcı (0xFFFF)
+BIN_HEADER = b"\xAA\xAA"
+BIN_TRAILER = b"\xFF\xFF"
+BIN_FRAME_LEN = 22
+BIN_STRUCT = struct.Struct("<10h")
+ACC_G_PER_LSB = 1.0 / 128.0      # ADXL345 ±4g, 10-bit
+GYRO_LSB_PER_DPS = 14.375        # ITG3205 hassasiyeti
 
 
 class SerialManager:
@@ -22,6 +34,7 @@ class SerialManager:
         self.is_running = False
         self.thread: Optional[threading.Thread] = None
         self.start_time: Optional[float] = None
+        self._binary_mode = False
 
         self.rocket_data = RocketTelemetry()
         self.payload_data = PayloadTelemetry()
@@ -40,6 +53,7 @@ class SerialManager:
             self.is_running = True
             self.start_time = time.time()
             self.rocket_data.flight_time = 0.0
+            self._binary_mode = False
             self.thread = threading.Thread(target=self._read_loop, daemon=True)
             self.thread.start()
             print(f"[Seri Port] {port_name} ({baudrate} baud) başarıyla bağlandı.")
@@ -64,18 +78,79 @@ class SerialManager:
         print("[Seri Port] Bağlantı kesildi.")
 
     def _read_loop(self):
-        """Sürekli gelen telemetri satırlarını okur."""
-        buffer = ""
+        """Seri porttan ham baytları okur; ikili paketleri ve metin satırlarını ayrıştırır."""
+        buffer = bytearray()
         while self.is_running and self.serial_port and self.serial_port.is_open:
             try:
-                raw_bytes = self.serial_port.readline()
-                if raw_bytes:
-                    line = raw_bytes.decode("utf-8", errors="ignore").strip()
-                    if line:
-                        self._parse_line(line)
+                chunk = self.serial_port.read(self.serial_port.in_waiting or 1)
+                if chunk:
+                    buffer += chunk
+                    self._consume_buffer(buffer)
             except Exception as e:
                 print(f"[Seri Port Okuma Hatası]: {e}")
                 time.sleep(0.1)
+
+    def _consume_buffer(self, buf: bytearray):
+        """Tampondaki tüm tam ikili paketleri ve metin satırlarını işler (yerinde kırpar)."""
+        # 1. İkili paketler (0xAA 0xAA başlıklı)
+        while True:
+            hdr = buf.find(BIN_HEADER)
+            if hdr == -1 or len(buf) - hdr < BIN_FRAME_LEN:
+                break
+            frame_end = hdr + BIN_FRAME_LEN
+            trailer_ok = buf[frame_end - 2:frame_end] == BIN_TRAILER
+            next_ok = buf[frame_end:frame_end + 2] == BIN_HEADER
+            if not trailer_ok and len(buf) < frame_end + 2:
+                break  # Doğrulamak için sonraki paketin başlığını bekle
+            if trailer_ok or next_ok:
+                self._binary_mode = True
+                self._parse_binary_frame(bytes(buf[hdr + 2:frame_end]))
+                del buf[:frame_end]
+            else:
+                del buf[:hdr + 1]  # Sahte başlık, bir bayt kaydır
+
+        # 2. Metin satırları (ikili akış tespit edilmediyse)
+        if not self._binary_mode:
+            hdr = buf.find(BIN_HEADER)
+            limit = hdr if hdr != -1 else len(buf)
+            nl = buf.find(b"\n", 0, limit)
+            while nl != -1:
+                line = bytes(buf[:nl]).decode("utf-8", errors="ignore").strip()
+                del buf[:nl + 1]
+                limit -= nl + 1
+                if line:
+                    self._parse_line(line)
+                nl = buf.find(b"\n", 0, limit)
+        elif BIN_HEADER not in buf and len(buf) > 1:
+            del buf[:-1]  # Senkron dışı çöp baytları at (yarım başlığı koru)
+
+        # Tampon taşmasına karşı koruma
+        if len(buf) > 4096:
+            del buf[:-BIN_FRAME_LEN]
+
+    def _parse_binary_frame(self, payload: bytes):
+        """GY-85 ikili paketini (10 x int16) fiziksel birimlere çevirir."""
+        v = BIN_STRUCT.unpack(payload)
+        if self.start_time is None:
+            self.start_time = time.time()
+
+        r = self.rocket_data
+        r.flight_time = round(time.time() - self.start_time, 3)
+        r.timestamp = time.time()
+
+        r.acc_x = v[0] * ACC_G_PER_LSB
+        r.acc_y = v[1] * ACC_G_PER_LSB
+        r.acc_z = v[2] * ACC_G_PER_LSB
+        r.total_acc = math.sqrt(r.acc_x ** 2 + r.acc_y ** 2 + r.acc_z ** 2)
+
+        r.gyr_x = v[3] / GYRO_LSB_PER_DPS
+        r.gyr_y = v[4] / GYRO_LSB_PER_DPS
+        r.gyr_z = v[5] / GYRO_LSB_PER_DPS
+        # v[6:9] pusula ham verisi: telemetri modelinde alanı yok, şimdilik kullanılmıyor.
+
+        r.packet_id += 1
+        if self.data_callback:
+            self.data_callback(r, self.payload_data)
 
     def _parse_line(self, line: str):
         """

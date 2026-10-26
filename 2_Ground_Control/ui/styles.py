@@ -158,6 +158,16 @@ QPushButton:pressed {
     color: #FFFFFF;
 }
 
+#RefreshPortsButton {
+    padding: 0;
+    font-size: 13px;
+}
+
+#RefreshPortsButton:hover {
+    background-color: #2E3D56;
+    border-color: #0284C7;
+}
+
 /* Seçim Kutuları (ComboBox) */
 QComboBox {
     background-color: #0F172A;

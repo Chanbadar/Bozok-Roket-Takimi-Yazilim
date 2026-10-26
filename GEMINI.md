@@ -45,10 +45,12 @@ Her zaman bu repoda aşağıdaki kurallara ve adımlara tam uyulmalıdır:
      git add .
      git commit -m "feat(modul-adi): yapılan işin kısa özeti"
      ```
-   - Kullanıcıdan açık push onayı alındıktan sonra branch `origin`e gönderilir:
+   - Kullanıcıdan açık push onayı alındıktan sonra branch `origin`e gönderilir (Burada ASLA sayı yazılmaz, sadece dal adı yazılır):
      ```bash
      git push -u origin feature/gorev-adi
      ```
 
 4. **Pull Request (PR) Aşaması**:
-   - Push işlemi tamamlandıktan sonra kullanıcıya `develop` dalına Pull Request açabilmesi için GitHub bağlantısı sunulur.
+   - Push işlemi tamamlandıktan sonra kullanıcıya **`develop`** dalına Pull Request açabilmesi için GitHub bağlantısı sunulur (`compare/develop...feature/gorev-adi`).
+   - **Kritik Kural**: PR hedefi (base branch) **DAİMA `develop`** olmalıdır; asla doğrudan `main`e açılmamalıdır.
+   - PR numaraları (#1, #2, #5, #6...) GitHub tarafından tamamen otomatik verilir, geliştiricinin hiçbir zaman numara yazması gerekmez.

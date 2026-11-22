@@ -1,0 +1,1 @@
+Burada yazilan kod Meryem Kavak tarafindan yazilmis olup uzerine ekstra ilaveler yapilacaktir ve kodun genel icerigi teensy4.1 e bagli olan ms5611 model barometreyi (I2C baglantisiyla), Gy-85 Imu sensorunu, gy-gps6mv2 gps modulunu ve E108-GN04D model gpsi (yani iki gps modulunude) test eden bir test kodudur.

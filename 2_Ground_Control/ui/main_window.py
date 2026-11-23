@@ -29,6 +29,7 @@ from ui.components.flight_state_widget import FlightStateWidget
 from ui.components.header_bar import HeaderBar
 from ui.components.map_widget import MapWidget
 from ui.components.real_time_charts import RealTimeChartsWidget
+from ui.components.rocket_3d_widget import Rocket3DWidget
 from ui.components.telemetry_panel import PayloadTelemetryWidget, RocketTelemetryWidget
 from ui.styles import DARK_THEME_QSS
 
@@ -97,7 +98,7 @@ class MainWindow(QMainWindow):
         payload_scroll.setMinimumWidth(260)
         main_splitter.addWidget(payload_scroll)
 
-        # Sağ Alan (Grafikler + Harita)
+        # Sağ Alan (Grafikler + [3D Roket Duruşu / Harita])
         right_splitter = QSplitter(Qt.Orientation.Horizontal)
         right_splitter.setHandleWidth(4)
 
@@ -105,14 +106,27 @@ class MainWindow(QMainWindow):
         self.charts_widget = RealTimeChartsWidget()
         right_splitter.addWidget(self.charts_widget)
 
-        # Canlı Harita
+        # Sağ Dikey Sütun: Üstte Canlı 3D Duruş (Pop-out destekli), Altta Canlı GPS Haritası
+        right_side_splitter = QSplitter(Qt.Orientation.Vertical)
+        right_side_splitter.setHandleWidth(4)
+
+        self.rocket_3d_widget = Rocket3DWidget()
+        self.rocket_3d_widget.setMinimumWidth(330)
+        self.rocket_3d_widget.setMinimumHeight(270)
+        right_side_splitter.addWidget(self.rocket_3d_widget)
+
         self.map_widget = MapWidget()
-        self.map_widget.setMinimumWidth(320)
-        right_splitter.addWidget(self.map_widget)
+        self.map_widget.setMinimumWidth(330)
+        self.map_widget.setMinimumHeight(210)
+        right_side_splitter.addWidget(self.map_widget)
+
+        right_side_splitter.setStretchFactor(0, 5)  # 3D Duruş
+        right_side_splitter.setStretchFactor(1, 4)  # GPS Haritası
+        right_splitter.addWidget(right_side_splitter)
 
         # Orantılı boyutlar
-        right_splitter.setStretchFactor(0, 3)  # Grafikler daha geniş
-        right_splitter.setStretchFactor(1, 2)  # Harita
+        right_splitter.setStretchFactor(0, 5)  # Grafikler
+        right_splitter.setStretchFactor(1, 4)  # 3D Duruş + Harita
 
         main_splitter.addWidget(right_splitter)
 
@@ -161,6 +175,8 @@ class MainWindow(QMainWindow):
         if start:
             self.charts_widget.clear()
             self.simulator.reset()
+            self.current_rocket = self.simulator.rocket_data
+            self.current_payload = self.simulator.payload_data
             self._new_packet_received = False
             self.sim_timer.start()
         else:
@@ -193,8 +209,9 @@ class MainWindow(QMainWindow):
         self.rocket_panel.update_telemetry(r)
         self.payload_panel.update_telemetry(p)
 
-        # Durum Çubuğunu güncelle
+        # Durum Çubuğunu ve 3D Roket Duruşunu güncelle
         self.flight_state_widget.set_state(r.flight_state)
+        self.rocket_3d_widget.update_attitude(r.pitch, r.roll, r.yaw, r.flight_state)
 
         # Grafikleri güncelle (Sadece yeni telemetri paketi ulaştığında ekle)
         if self._new_packet_received and r.packet_id > 0:
@@ -203,9 +220,10 @@ class MainWindow(QMainWindow):
             self._new_packet_received = False
 
     def closeEvent(self, event):
-        """Pencere kapanırken seri port ve kayıtları güvenle kapatır."""
+        """Pencere kapanırken seri port, 3D pop-out ve kayıtları güvenle kapatır."""
         self.sim_timer.stop()
         self.ui_timer.stop()
+        self.rocket_3d_widget.close_popout()
         self.serial_mgr.disconnect()
         self.data_logger.stop_logging()
         event.accept()

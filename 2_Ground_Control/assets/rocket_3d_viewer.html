@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bozok Roket Takımı - 3D Duruş Görünümü</title>
+  <script src="three.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 42%, #111F3B 0%, #0A1124 58%, #060B16 100%);
+      font-family: 'Segoe UI', 'Roboto', sans-serif;
+      color: #F8FAFC;
+    }
+
+    #viewport {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+
+    #viewport:active {
+      cursor: grabbing;
+    }
+
+    /* Üst Bilgi & Kamera Preset Barı */
+    .hud-top {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .model-chip {
+      background: rgba(15, 23, 42, 0.78);
+      border: 1px solid rgba(56, 189, 248, 0.30);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #CBD5E1;
+      letter-spacing: 0.4px;
+      backdrop-filter: blur(6px);
+      pointer-events: auto;
+      line-height: 1.35;
+    }
+
+    .model-chip span {
+      color: #38BDF8;
+    }
+
+    .cam-controls {
+      display: flex;
+      gap: 4px;
+      pointer-events: auto;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .cam-btn {
+      background: rgba(15, 23, 42, 0.80);
+      border: 1px solid rgba(71, 85, 105, 0.65);
+      color: #CBD5E1;
+      border-radius: 5px;
+      padding: 3px 7px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      backdrop-filter: blur(4px);
+    }
+
+    .cam-btn:hover {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: #38BDF8;
+      color: #FFFFFF;
+    }
+
+    .cam-btn.active {
+      background: rgba(2, 132, 199, 0.35);
+      border-color: #38BDF8;
+      color: #38BDF8;
+    }
+
+    /* Alt Canlı Pitch / Roll / Yaw HUD */
+    .hud-bottom {
+      position: fixed;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .attitude-strip {
+      display: flex;
+      gap: 5px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .angle-box {
+      flex: 1;
+      min-width: 60px;
+      background: rgba(15, 23, 42, 0.82);
+      border: 1px solid rgba(30, 41, 59, 0.95);
+      border-radius: 6px;
+      padding: 4px 6px;
+      text-align: center;
+      backdrop-filter: blur(6px);
+    }
+
+    .angle-label {
+      font-size: 9px;
+      font-weight: 800;
+      color: #94A3B8;
+      letter-spacing: 0.7px;
+    }
+
+    .angle-val {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: 800;
+      margin-top: 1px;
+    }
+
+    .c-pitch { color: #38BDF8; }
+    .c-roll  { color: #FACC15; }
+    .c-yaw   { color: #FB923C; }
+
+    .state-pill {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-width: 96px;
+      background: rgba(15, 23, 42, 0.84);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 6px;
+      padding: 4px 8px;
+      backdrop-filter: blur(6px);
+    }
+
+    .state-label {
+      font-size: 8px;
+      font-weight: 700;
+      color: #64748B;
+      letter-spacing: 0.8px;
+    }
+
+    .state-text {
+      font-size: 10px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 430px) {
+      .hud-top { top: 6px; left: 6px; right: 6px; }
+      .model-chip { font-size: 9px; padding: 3px 6px; max-width: 48%; }
+      .cam-btn { padding: 2px 5px; font-size: 9px; }
+      .hud-bottom { bottom: 6px; left: 6px; right: 6px; gap: 4px; }
+      .angle-box { min-width: 0; padding: 3px 4px; }
+      .angle-label { font-size: 8px; }
+      .angle-val { font-size: 11px; }
+      .state-pill { display: none; }
+    }
+
+    .error-banner {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      color: #FCA5A5;
+      background: #0B132B;
+      font-size: 13px;
+      z-index: 99;
+    }
+  </style>
+</head>
+<body>
+  <div id="viewport"></div>
+
+  <div class="hud-top">
+    <div class="model-chip" id="modelChip">
+      <span>BOZOK ORK</span> • Yükleniyor...
+    </div>
+    <div class="cam-controls">
+      <button class="cam-btn active" id="btnIso" onclick="setCameraPreset('iso')" title="3/4 İzometrik görünüm">3D</button>
+      <button class="cam-btn" id="btnSide" onclick="setCameraPreset('side')" title="Yandan görünüm (Pitch)">YAN</button>
+      <button class="cam-btn" id="btnTop" onclick="setCameraPreset('top')" title="Üstten görünüm (Yaw/Roll)">ÜST</button>
+      <button class="cam-btn active" id="btnAxes" onclick="toggleAxes()" title="Gövde eksenleri ve ufuk kafesi">EKS</button>
+      <button class="cam-btn" onclick="resetCamera()" title="Kamerayı sıfırla (veya çift tıkla)">⟳</button>
+    </div>
+  </div>
+
+  <div class="hud-bottom">
+    <div class="attitude-strip">
+      <div class="angle-box">
+        <div class="angle-label">PITCH</div>
+        <div class="angle-val c-pitch" id="valPitch">+90.0°</div>
+      </div>
+      <div class="angle-box">
+        <div class="angle-label">ROLL</div>
+        <div class="angle-val c-roll" id="valRoll">+0.0°</div>
+      </div>
+      <div class="angle-box">
+        <div class="angle-label">YAW</div>
+        <div class="angle-val c-yaw" id="valYaw">+0.0°</div>
+      </div>
+    </div>
+    <div class="state-pill" id="statePill">
+      <div class="state-label">UÇUŞ FAZI</div>
+      <div class="state-text" id="valState">RAMPA</div>
+    </div>
+  </div>
+
+  <div class="error-banner" id="errorBanner"></div>
+
+  <script>
+    (function () {
+      const errorBanner = document.getElementById('errorBanner');
+      if (typeof THREE === 'undefined') {
+        errorBanner.style.display = 'flex';
+        errorBanner.textContent = 'Three.js (three.min.js) yüklenemedi.';
+        return;
+      }
+
+      const container = document.getElementById('viewport');
+      const DEG2RAD = Math.PI / 180.0;
+
+      // --- Sahne, Kamera ve Renderer ---
+      const scene = new THREE.Scene();
+
+      const camera = new THREE.PerspectiveCamera(
+        40,
+        Math.max(1, container.clientWidth) / Math.max(1, container.clientHeight),
+        0.05,
+        100
+      );
+
+      let renderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      } catch (e) {
+        errorBanner.style.display = 'flex';
+        errorBanner.textContent = 'WebGL başlatılamadı: ' + e.message;
+        return;
+      }
+
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      container.appendChild(renderer.domElement);
+
+      // --- Işıklandırma (Havacılık Stüdyo Kurulumu) ---
+      const hemiLight = new THREE.HemisphereLight(0xCBE8FF, 0x162238, 0.95);
+      scene.add(hemiLight);
+
+      const keyLight = new THREE.DirectionalLight(0xFFFFFF, 1.35);
+      keyLight.position.set(4.5, 6.0, 5.0);
+      scene.add(keyLight);
+
+      const rimLight = new THREE.DirectionalLight(0x38BDF8, 0.85);
+      rimLight.position.set(-5.0, 2.5, -4.0);
+      scene.add(rimLight);
+
+      const fillLight = new THREE.DirectionalLight(0xF8FAFC, 0.40);
+      fillLight.position.set(0.0, -4.5, 3.0);
+      scene.add(fillLight);
+
+      // Motor yanış ışığı (sadece MOTOR_YANISI fazında açılır)
+      const plumeLight = new THREE.PointLight(0xFF7B29, 0.0, 4.0, 2.0);
+      scene.add(plumeLight);
+
+      // --- Referans Dünya Kafesi & Zemin Izgarası ---
+      const worldRefGroup = new THREE.Group();
+      scene.add(worldRefGroup);
+
+      // Zemin Polar Izgara
+      const polarGrid = new THREE.PolarGridHelper(2.1, 12, 5, 64, 0x1E3A5F, 0x152540);
+      polarGrid.position.y = -1.62;
+      worldRefGroup.add(polarGrid);
+
+      // Ufuk Dairesi (Pitch = 0° referans halkası)
+      const horizonGeo = new THREE.RingGeometry(1.56, 1.585, 96);
+      const horizonMat = new THREE.MeshBasicMaterial({
+        color: 0x38BDF8,
+        opacity: 0.28,
+        transparent: true,
+        side: THREE.DoubleSide
+      });
+      const horizonRing = new THREE.Mesh(horizonGeo, horizonMat);
+      horizonRing.rotation.x = Math.PI / 2;
+      worldRefGroup.add(horizonRing);
+
+      // Dikey Meridyene Yardımcı Çember (Eğim referansı)
+      const meridianCurve = new THREE.EllipseCurve(0, 0, 1.57, 1.57, 0, Math.PI * 2, false, 0);
+      const meridianPts = meridianCurve.getPoints(96).map(p => new THREE.Vector3(p.x, p.y, 0));
+      const meridianGeo = new THREE.BufferGeometry().setFromPoints(meridianPts);
+      const meridianMat = new THREE.LineBasicMaterial({ color: 0x334155, opacity: 0.45, transparent: true });
+      const meridianNS = new THREE.Line(meridianGeo, meridianMat);
+      meridianNS.rotation.y = Math.PI / 2;
+      worldRefGroup.add(meridianNS);
+      const meridianEW = new THREE.Line(meridianGeo, meridianMat);
+      worldRefGroup.add(meridianEW);
+
+      // Zenit (Dünya +Y / Pitch=+90°) Kesikli Referans Çizgisi
+      const zenithGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, -1.62, 0),
+        new THREE.Vector3(0, 1.80, 0)
+      ]);
+      const zenithMat = new THREE.LineDashedMaterial({
+        color: 0x38BDF8,
+        dashSize: 0.08,
+        gapSize: 0.06,
+        opacity: 0.35,
+        transparent: true
+      });
+      const zenithLine = new THREE.Line(zenithGeo, zenithMat);
+      zenithLine.computeLineDistances();
+      worldRefGroup.add(zenithLine);
+
+      // Pusula Etiketleri (K, D, G, B)
+      function makeLabelSprite(text, color) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 96;
+        canvas.height = 96;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, 96, 96);
+        ctx.font = 'bold 48px Segoe UI, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = color;
+        ctx.fillText(text, 48, 50);
+        const tex = new THREE.CanvasTexture(canvas);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+        const sprite = new THREE.Sprite(mat);
+        sprite.scale.set(0.24, 0.24, 1);
+        return sprite;
+      }
+
+      const lblN = makeLabelSprite('K', '#38BDF8');
+      lblN.position.set(0, 0.04, -1.74);
+      const lblS = makeLabelSprite('G', '#64748B');
+      lblS.position.set(0, 0.04, 1.74);
+      const lblE = makeLabelSprite('D', '#94A3B8');
+      lblE.position.set(1.74, 0.04, 0);
+      const lblW = makeLabelSprite('B', '#94A3B8');
+      lblW.position.set(-1.74, 0.04, 0);
+      worldRefGroup.add(lblN, lblS, lblE, lblW);
+
+      // --- Roket Ana Grubu (Duruş Dönüşü Uygulanır) ---
+      const rocketPivot = new THREE.Group();
+      scene.add(rocketPivot);
+
+      const rocketModelGroup = new THREE.Group();
+      rocketPivot.add(rocketModelGroup);
+
+      // Gövde Eksenleri (Roketle Birlikte Döner)
+      const bodyAxesGroup = new THREE.Group();
+      rocketPivot.add(bodyAxesGroup);
+
+      function buildBodyAxes() {
+        while (bodyAxesGroup.children.length) bodyAxesGroup.remove(bodyAxesGroup.children[0]);
+        // X (Kırmızı), Y-Roll/Burun (Turkuaz), Z-Yanal (Yeşil)
+        const arrowX = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 0.72, 0xEF4444, 0.10, 0.055);
+        const arrowZ = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 0, 0), 0.72, 0x22C55E, 0.10, 0.055);
+        const arrowNose = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 1.65, 0x00F0FF, 0.12, 0.06);
+        bodyAxesGroup.add(arrowX, arrowZ, arrowNose);
+      }
+      buildBodyAxes();
+
+      // --- Gövde Dokuları (Roll Takibi + Bozok Havacılık Deseni) ---
+      function createBodyTexture(isUpper) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1024;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // Fiberglass gövde taban rengi
+        ctx.fillStyle = '#E2E8F0';
+        ctx.fillRect(0, 0, 1024, 512);
+
+        // İnce yatay fiberglass dokusu
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.03)';
+        for (let y = 0; y < 512; y += 8) {
+          ctx.fillRect(0, y, 1024, 2);
+        }
+
+        if (isUpper) {
+          // Üst kısımda NASA/Saturn tarzı siyah-beyaz Roll takip dama bandı
+          const bandY = 34;
+          const bandH = 44;
+          const cols = 8;
+          const colW = 1024 / cols;
+          for (let c = 0; c < cols; c++) {
+            ctx.fillStyle = (c % 2 === 0) ? '#0F172A' : '#F8FAFC';
+            ctx.fillRect(c * colW, bandY, colW, bandH);
+          }
+
+          // Bozok Cyan vurgu şeridi
+          ctx.fillStyle = '#0284C7';
+          ctx.fillRect(0, 88, 1024, 16);
+          ctx.fillStyle = '#00F0FF';
+          ctx.fillRect(0, 104, 1024, 5);
+
+          // Roll referans dikey şerit (0° hizasında turuncu-kırmızı çizgi -> dönüşü anında gösterir)
+          ctx.fillStyle = '#FF6B4A';
+          ctx.fillRect(0, 118, 22, 360);
+
+          // BOZOK dikey yazısı (iki karşı yüzde)
+          ctx.save();
+          ctx.fillStyle = '#0F172A';
+          ctx.font = '900 44px Segoe UI, Arial, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          [256, 768].forEach(cx => {
+            ctx.save();
+            ctx.translate(cx, 290);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('BOZOK ROKET', 0, 0);
+            ctx.restore();
+          });
+          ctx.restore();
+        } else {
+          // Alt gövde: Ayrılma bölgesi koyu bandı + kuyruk antrasit fin-can şeridi
+          ctx.fillStyle = '#0F172A';
+          ctx.fillRect(0, 0, 1024, 26);
+
+          ctx.fillStyle = '#38BDF8';
+          ctx.fillRect(0, 26, 1024, 7);
+
+          // Roll takip dikey şeridi (üst gövde ile hizalı)
+          ctx.fillStyle = '#FF6B4A';
+          ctx.fillRect(0, 36, 22, 380);
+
+          // Alt kanatçık bölgesi antrasit karbon görünümü
+          ctx.fillStyle = '#1E293B';
+          ctx.fillRect(0, 412, 1024, 100);
+          ctx.fillStyle = '#38BDF8';
+          ctx.fillRect(0, 406, 1024, 6);
+
+          // Alt kısımda orta irtifa işareti
+          ctx.save();
+          ctx.fillStyle = '#334155';
+          ctx.font = '800 30px Consolas, monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          [256, 768].forEach(cx => {
+            ctx.save();
+            ctx.translate(cx, 225);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('ORTA IRTIFA • 3000M', 0, 0);
+            ctx.restore();
+          });
+          ctx.restore();
+        }
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.encoding = THREE.sRGBEncoding;
+        tex.anisotropy = 4;
+        return tex;
+      }
+
+      const upperBodyTex = createBodyTexture(true);
+      const lowerBodyTex = createBodyTexture(false);
+
+      // --- Dinamik Motor Alevi (Plume) ---
+      let plumeGroup = null;
+      let plumeOuter = null;
+      let plumeInner = null;
+      let motorActive = false;
+
+      function clearGroup(grp) {
+        while (grp.children.length > 0) {
+          const obj = grp.children[0];
+          grp.remove(obj);
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+            else obj.material.dispose();
+          }
+        }
+      }
+
+      // --- OpenRocket JSON Spec'inden 1:1 3D Roket Oluşturucu ---
+      function buildRocketFromSpec(spec) {
+        clearGroup(rocketModelGroup);
+        plumeGroup = null;
+        plumeOuter = null;
+        plumeInner = null;
+
+        const L = Math.max(0.5, Number(spec.total_length) || 2.73);
+        const maxR = Math.max(0.02, Number(spec.max_radius) || 0.065);
+        // Görsel olarak 2.73m roketi sahnede ideal boyuta (~2.65 birim) normalize et
+        const scale = 2.65 / L;
+        const yOfZ = (z) => (L * 0.5 - z) * scale;
+
+        // Materyaller
+        const noseMat = new THREE.MeshStandardMaterial({
+          color: 0x0F172A,
+          roughness: 0.28,
+          metalness: 0.25
+        });
+        const noseTipMat = new THREE.MeshStandardMaterial({
+          color: 0x38BDF8,
+          roughness: 0.22,
+          metalness: 0.65,
+          emissive: 0x0369A1,
+          emissiveIntensity: 0.20
+        });
+        const seamMat = new THREE.MeshStandardMaterial({
+          color: 0x0B132B,
+          roughness: 0.35,
+          metalness: 0.70
+        });
+        const finMat = new THREE.MeshStandardMaterial({
+          color: 0xCBD5E1,
+          roughness: 0.24,
+          metalness: 0.80
+        });
+        const finAccentMat = new THREE.MeshStandardMaterial({
+          color: 0xFF6B4A,
+          roughness: 0.30,
+          metalness: 0.45
+        });
+        const railBtnMat = new THREE.MeshStandardMaterial({
+          color: 0x334155,
+          roughness: 0.45,
+          metalness: 0.35
+        });
+        const nozzleMat = new THREE.MeshStandardMaterial({
+          color: 0x1E293B,
+          roughness: 0.35,
+          metalness: 0.85
+        });
+
+        // 1. Burun Konisi (Von Kármán / Haack / Ogive profili)
+        if (spec.nosecone && Array.isArray(spec.nosecone.profile) && spec.nosecone.profile.length >= 2) {
+          const nc = spec.nosecone;
+          const profile = nc.profile;
+          const splitIdx = Math.max(2, Math.floor(profile.length * 0.16));
+
+          // Ana burun gövdesi (aft -> splitIdx, dışa bakan normaller için alttan üste sıralı)
+          const mainPts = [];
+          for (let i = profile.length - 1; i >= splitIdx; i--) {
+            mainPts.push(new THREE.Vector2(profile[i][1] * scale, yOfZ(nc.z_start + profile[i][0])));
+          }
+          if (mainPts.length >= 2) {
+            const noseGeo = new THREE.LatheGeometry(mainPts, 56);
+            const noseMesh = new THREE.Mesh(noseGeo, noseMat);
+            rocketModelGroup.add(noseMesh);
+          }
+
+          // Metalik / Cyan burun ucu kapağı (splitIdx -> 0)
+          const tipPts = [];
+          for (let i = splitIdx; i >= 0; i--) {
+            tipPts.push(new THREE.Vector2(profile[i][1] * scale, yOfZ(nc.z_start + profile[i][0])));
+          }
+          if (tipPts.length >= 2) {
+            const tipGeo = new THREE.LatheGeometry(tipPts, 56);
+            const tipMesh = new THREE.Mesh(tipGeo, noseTipMat);
+            rocketModelGroup.add(tipMesh);
+          }
+        }
+
+        // 2. Gövde Boruları (Body Tubes)
+        const tubes = Array.isArray(spec.body_tubes) ? spec.body_tubes : [];
+        tubes.forEach((bt, idx) => {
+          const r = (Number(bt.radius) || maxR) * scale;
+          const len = Math.max(0.02, Number(bt.length) || 1.0) * scale;
+          const yMid = yOfZ(Number(bt.z_start) + Number(bt.length) * 0.5);
+
+          const mat = new THREE.MeshStandardMaterial({
+            map: idx === 0 ? upperBodyTex : lowerBodyTex,
+            roughness: 0.34,
+            metalness: 0.12
+          });
+          const geo = new THREE.CylinderGeometry(r, r, len, 56, 1, false);
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.y = yMid;
+          rocketModelGroup.add(mesh);
+        });
+
+        // 3. Geçiş Parçaları (Transitions, varsa)
+        const transitions = Array.isArray(spec.transitions) ? spec.transitions : [];
+        transitions.forEach((tr) => {
+          const rTop = (Number(tr.fore_radius) || maxR) * scale;
+          const rBot = (Number(tr.aft_radius) || maxR) * scale;
+          const len = Math.max(0.01, Number(tr.length) || 0.1) * scale;
+          const yMid = yOfZ(Number(tr.z_start) + Number(tr.length) * 0.5);
+          const geo = new THREE.CylinderGeometry(rTop, rBot, len, 56, 1, false);
+          const mesh = new THREE.Mesh(geo, seamMat);
+          mesh.position.y = yMid;
+          rocketModelGroup.add(mesh);
+        });
+
+        // 4. Birleşim / Ayrılma Halkaları (Seams)
+        const seams = Array.isArray(spec.seams) ? spec.seams : [];
+        seams.forEach((sz) => {
+          const ringGeo = new THREE.CylinderGeometry((maxR + 0.0018) * scale, (maxR + 0.0018) * scale, 0.012 * scale, 56);
+          const ring = new THREE.Mesh(ringGeo, seamMat);
+          ring.position.y = yOfZ(sz);
+          rocketModelGroup.add(ring);
+        });
+
+        // 5. Kanatçık Setleri (Trapezoidal / Elliptical)
+        const finSets = Array.isArray(spec.fin_sets) ? spec.fin_sets : [];
+        let totalFins = 0;
+        finSets.forEach((fs) => {
+          const count = Math.max(1, Number(fs.count) || 3);
+          totalFins += count;
+          const bodyR = (Number(fs.body_radius) || maxR) * scale;
+          const rootC = (Number(fs.root_chord) || 0.19) * scale;
+          const tipC = (Number(fs.tip_chord) || 0.07) * scale;
+          const sweep = (Number(fs.sweep_length) || 0.11) * scale;
+          const height = (Number(fs.height) || 0.10) * scale;
+          const thick = Math.max(0.003, Number(fs.thickness) || 0.004) * scale;
+          const yLead = yOfZ(Number(fs.z_start));
+          const angleOff = (Number(fs.angle_offset_deg) || 0.0) * DEG2RAD;
+
+          const shape = new THREE.Shape();
+          const embed = Math.min(bodyR * 0.25, 0.005 * scale);
+          shape.moveTo(bodyR - embed, yLead);
+          shape.lineTo(bodyR + height, yLead - sweep);
+          shape.lineTo(bodyR + height, yLead - sweep - tipC);
+          shape.lineTo(bodyR - embed, yLead - rootC);
+          shape.closePath();
+
+          const extrudeOpts = {
+            depth: thick,
+            bevelEnabled: true,
+            bevelThickness: thick * 0.28,
+            bevelSize: thick * 0.28,
+            bevelSegments: 2
+          };
+          const finGeo = new THREE.ExtrudeGeometry(shape, extrudeOpts);
+          finGeo.translate(0, 0, -thick * 0.5);
+
+          for (let i = 0; i < count; i++) {
+            const finHolder = new THREE.Group();
+            const finMesh = new THREE.Mesh(finGeo, i === 0 ? finAccentMat : finMat);
+            finHolder.add(finMesh);
+            finHolder.rotation.y = angleOff + (i * Math.PI * 2) / count;
+            rocketModelGroup.add(finHolder);
+          }
+        });
+
+        // 6. Rail Button'lar (Kaydırma Ayakları)
+        const railBtns = Array.isArray(spec.rail_buttons) ? spec.rail_buttons : [];
+        railBtns.forEach((rb) => {
+          const bR = (Number(rb.body_radius) || maxR) * scale;
+          const d = Math.max(0.008, Number(rb.outer_diameter) || 0.0097) * scale;
+          const h = Math.max(0.008, Number(rb.height) || 0.0097) * scale;
+          const ang = (Number(rb.angle_deg) || 180.0) * DEG2RAD;
+
+          const btnGeo = new THREE.CylinderGeometry(d * 0.55, d * 0.62, h, 16);
+          btnGeo.rotateZ(-Math.PI / 2);
+          const btnMesh = new THREE.Mesh(btnGeo, railBtnMat);
+          btnMesh.position.set(
+            Math.cos(ang) * (bR + h * 0.45),
+            yOfZ(Number(rb.z)),
+            -Math.sin(ang) * (bR + h * 0.45)
+          );
+          btnMesh.rotation.y = ang;
+          rocketModelGroup.add(btnMesh);
+        });
+
+        // 7. Motor Kundağı & Nozul + Dinamik Yanış Alevi
+        const nozzleR = ((spec.motor_mount && spec.motor_mount.radius) ? Number(spec.motor_mount.radius) : maxR * 0.62) * scale;
+        const tailY = yOfZ(L);
+        const nozzleH = 0.048 * scale;
+
+        // Kuyruk kapama diski
+        const aftPlateGeo = new THREE.CylinderGeometry(maxR * scale * 0.99, maxR * scale * 0.99, 0.012 * scale, 48);
+        const aftPlate = new THREE.Mesh(aftPlateGeo, seamMat);
+        aftPlate.position.y = tailY + 0.006 * scale;
+        rocketModelGroup.add(aftPlate);
+
+        // Konik grafit nozul çıkışı
+        const nozGeo = new THREE.CylinderGeometry(nozzleR * 0.68, nozzleR * 0.92, nozzleH, 32);
+        const nozMesh = new THREE.Mesh(nozGeo, nozzleMat);
+        nozMesh.position.y = tailY - nozzleH * 0.5;
+        rocketModelGroup.add(nozMesh);
+
+        // Motor Alevi Grubu
+        plumeGroup = new THREE.Group();
+        plumeGroup.position.y = tailY - nozzleH;
+        plumeGroup.visible = false;
+
+        const outerFlameGeo = new THREE.ConeGeometry(nozzleR * 1.15, 0.68 * scale, 24, 1, true);
+        outerFlameGeo.rotateX(Math.PI);
+        outerFlameGeo.translate(0, -0.34 * scale, 0);
+        const outerFlameMat = new THREE.MeshBasicMaterial({
+          color: 0xFF6B2B,
+          transparent: true,
+          opacity: 0.78,
+          side: THREE.DoubleSide
+        });
+        plumeOuter = new THREE.Mesh(outerFlameGeo, outerFlameMat);
+        plumeGroup.add(plumeOuter);
+
+        const innerFlameGeo = new THREE.ConeGeometry(nozzleR * 0.62, 0.42 * scale, 20);
+        innerFlameGeo.rotateX(Math.PI);
+        innerFlameGeo.translate(0, -0.21 * scale, 0);
+        const innerFlameMat = new THREE.MeshBasicMaterial({
+          color: 0xFEF08A,
+          transparent: true,
+          opacity: 0.95
+        });
+        plumeInner = new THREE.Mesh(innerFlameGeo, innerFlameMat);
+        plumeGroup.add(plumeInner);
+
+        rocketModelGroup.add(plumeGroup);
+
+        // HUD model bilgi rozetini güncelle
+        const chip = document.getElementById('modelChip');
+        const diaMm = Math.round(maxR * 2000);
+        chip.innerHTML =
+          '<span>' + escapeHtml(spec.name || 'BOZOK') + '</span> • ' +
+          L.toFixed(2) + 'm • Ø' + diaMm + 'mm • ' + (totalFins || 3) + ' Kanatçık';
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+      }
+
+      // --- Etkileşimli Orbit Kamerası (Saf JS, Harici Bağımlılık Yok) ---
+      const camState = {
+        theta: 0.68,       // Azimut (rad)
+        phi: 1.18,         // Polar açı (rad, 0.08..3.05)
+        radius: 5.35,      // Uzaklık (burun ucu ve motor alevine rahat kadraj)
+        targetTheta: 0.68,
+        targetPhi: 1.18,
+        targetRadius: 5.35,
+        isDragging: false,
+        lastX: 0,
+        lastY: 0
+      };
+
+      function updateCameraTransform() {
+        camState.theta += (camState.targetTheta - camState.theta) * 0.16;
+        camState.phi += (camState.targetPhi - camState.phi) * 0.16;
+        camState.radius += (camState.targetRadius - camState.radius) * 0.16;
+
+        const sinPhi = Math.sin(camState.phi);
+        camera.position.set(
+          camState.radius * sinPhi * Math.sin(camState.theta),
+          camState.radius * Math.cos(camState.phi),
+          camState.radius * sinPhi * Math.cos(camState.theta)
+        );
+        camera.lookAt(0, 0.0, 0);
+      }
+
+      container.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        camState.isDragging = true;
+        camState.lastX = e.clientX;
+        camState.lastY = e.clientY;
+        container.setPointerCapture(e.pointerId);
+      });
+
+      container.addEventListener('pointermove', (e) => {
+        if (!camState.isDragging) return;
+        const dx = e.clientX - camState.lastX;
+        const dy = e.clientY - camState.lastY;
+        camState.lastX = e.clientX;
+        camState.lastY = e.clientY;
+
+        camState.targetTheta -= dx * 0.008;
+        camState.targetPhi = Math.max(0.08, Math.min(Math.PI - 0.08, camState.targetPhi - dy * 0.008));
+        clearPresetHighlight();
+      });
+
+      container.addEventListener('pointerup', (e) => {
+        camState.isDragging = false;
+        try { container.releasePointerCapture(e.pointerId); } catch (_) {}
+      });
+
+      container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        camState.targetRadius = Math.max(2.0, Math.min(8.5, camState.targetRadius + e.deltaY * 0.003));
+      }, { passive: false });
+
+      container.addEventListener('dblclick', () => resetCamera());
+
+      function clearPresetHighlight() {
+        ['btnIso', 'btnSide', 'btnTop'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.remove('active');
+        });
+      }
+
+      window.setCameraPreset = function (preset) {
+        clearPresetHighlight();
+        if (preset === 'side') {
+          camState.targetTheta = Math.PI / 2;
+          camState.targetPhi = Math.PI / 2 - 0.04;
+          camState.targetRadius = 5.2;
+          document.getElementById('btnSide').classList.add('active');
+        } else if (preset === 'top') {
+          camState.targetTheta = 0.0;
+          camState.targetPhi = 0.14;
+          camState.targetRadius = 5.2;
+          document.getElementById('btnTop').classList.add('active');
+        } else {
+          camState.targetTheta = 0.68;
+          camState.targetPhi = 1.18;
+          camState.targetRadius = 5.35;
+          document.getElementById('btnIso').classList.add('active');
+        }
+      };
+
+      window.resetCamera = function () {
+        window.setCameraPreset('iso');
+      };
+
+      let axesVisible = true;
+      window.toggleAxes = function () {
+        axesVisible = !axesVisible;
+        bodyAxesGroup.visible = axesVisible;
+        worldRefGroup.visible = axesVisible;
+        const btn = document.getElementById('btnAxes');
+        if (btn) btn.classList.toggle('active', axesVisible);
+      };
+
+      // --- Kuaterniyon Duruş Hedefi (Pitch, Roll, Yaw) ---
+      const targetQuat = new THREE.Quaternion();
+      const qYaw = new THREE.Quaternion();
+      const qTilt = new THREE.Quaternion();
+      const qRoll = new THREE.Quaternion();
+      const axisX = new THREE.Vector3(1, 0, 0);
+      const axisY = new THREE.Vector3(0, 1, 0);
+
+      const STATE_LABELS = {
+        'RAMPA_BEKLEME': ['RAMPA', '#94A3B8', 'rgba(148,163,184,0.35)'],
+        'MOTOR_YANISI': ['MOTOR YANIŞI', '#FB923C', 'rgba(251,146,60,0.65)'],
+        'TIRMANMA': ['TIRMANMA', '#38BDF8', 'rgba(56,189,248,0.55)'],
+        'APOGEE': ['APOGEE', '#FACC15', 'rgba(250,204,21,0.65)'],
+        'DROG_PARASUT': ['DROG PARAŞÜT', '#E879F9', 'rgba(232,121,249,0.55)'],
+        'GOREV_YUKU_AYRILDI': ['GY AYRILDI', '#4ADE80', 'rgba(74,222,128,0.60)'],
+        'GOREV_YUKU_AYRILMA': ['GY AYRILMA', '#4ADE80', 'rgba(74,222,128,0.60)'],
+        'ANA_PARASUT': ['ANA PARAŞÜT', '#34D399', 'rgba(52,211,153,0.60)'],
+        'KURTARMA_INIS': ['İNİŞ / KURTARMA', '#22C55E', 'rgba(34,197,94,0.60)'],
+        'MANUEL_TEST': ['MANUEL TEST', '#FACC15', 'rgba(250,204,21,0.65)']
+      };
+
+      function fmtDeg(val) {
+        const n = Number(val) || 0;
+        return (n >= 0 ? '+' : '') + n.toFixed(1) + '°';
+      }
+
+      window.setRocketSpec = function (spec) {
+        if (!spec || typeof spec !== 'object') return;
+        buildRocketFromSpec(spec);
+      };
+
+      window.updateAttitude = function (pitchDeg, rollDeg, yawDeg, flightState) {
+        const pitch = Number(pitchDeg);
+        const roll = Number(rollDeg);
+        const yaw = Number(yawDeg);
+
+        if (Number.isFinite(pitch) && Number.isFinite(roll) && Number.isFinite(yaw)) {
+          // pitch=+90° -> tilt=0° (dik yukarı +Y)
+          // pitch=0°   -> tilt=90° (yatay, yaw=0° iken Kuzey -Z yönünde)
+          // pitch=-90° -> tilt=180° (burun aşağı -Y)
+          const tiltRad = (90.0 - pitch) * DEG2RAD;
+          const yawRad = -yaw * DEG2RAD;   // Saat yönünde pusula açısı (0=K, 90=D, 180=G)
+          const rollRad = roll * DEG2RAD;  // Roket uzunlamasına ekseni etrafında dönüş
+
+          qYaw.setFromAxisAngle(axisY, yawRad);
+          qTilt.setFromAxisAngle(axisX, -tiltRad);
+          qRoll.setFromAxisAngle(axisY, rollRad);
+
+          // q = q_yaw * q_tilt * q_roll
+          targetQuat.copy(qYaw).multiply(qTilt).multiply(qRoll);
+
+          document.getElementById('valPitch').textContent = fmtDeg(pitch);
+          document.getElementById('valRoll').textContent = fmtDeg(roll);
+          document.getElementById('valYaw').textContent = fmtDeg(yaw);
+        }
+
+        if (flightState) {
+          const info = STATE_LABELS[flightState] || [String(flightState), '#38BDF8', 'rgba(56,189,248,0.4)'];
+          const stEl = document.getElementById('valState');
+          const pillEl = document.getElementById('statePill');
+          stEl.textContent = info[0];
+          stEl.style.color = info[1];
+          pillEl.style.borderColor = info[2];
+          motorActive = (flightState === 'MOTOR_YANISI');
+        }
+      };
+
+      // Varsayılan başlangıç duruşu (rampa üzerinde dik)
+      window.updateAttitude(90.0, 0.0, 0.0, 'RAMPA_BEKLEME');
+      rocketPivot.quaternion.copy(targetQuat);
+
+      // --- Boyutlandırma Takibi ---
+      function handleResize() {
+        const w = Math.max(1, container.clientWidth);
+        const h = Math.max(1, container.clientHeight);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      }
+      window.addEventListener('resize', handleResize);
+      if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(handleResize).observe(container);
+      }
+
+      // --- 60 FPS Animasyon Döngüsü ---
+      let clockTime = 0;
+      function animate() {
+        requestAnimationFrame(animate);
+        clockTime += 0.016;
+
+        // Yumuşak kuaterniyon SLERP geçişi
+        rocketPivot.quaternion.slerp(targetQuat, 0.28);
+
+        // Motor yanış alevi efekti
+        if (plumeGroup) {
+          plumeGroup.visible = motorActive;
+          if (motorActive) {
+            const flicker = 0.88 + 0.26 * Math.sin(clockTime * 55.0) + 0.12 * Math.cos(clockTime * 91.0);
+            plumeOuter.scale.set(0.95 + 0.08 * Math.sin(clockTime * 42.0), flicker, 0.95 + 0.08 * Math.cos(clockTime * 42.0));
+            plumeInner.scale.set(1.0, 0.85 + 0.25 * Math.cos(clockTime * 70.0), 1.0);
+
+            const worldPlumePos = new THREE.Vector3();
+            plumeGroup.getWorldPosition(worldPlumePos);
+            plumeLight.position.copy(worldPlumePos);
+            plumeLight.intensity = 2.4 * flicker;
+          } else {
+            plumeLight.intensity = 0.0;
+          }
+        }
+
+        updateCameraTransform();
+        renderer.render(scene, camera);
+      }
+
+      // Python tarafına hazır sinyali (ilk yükleme için)
+      window.__BOZOK_3D_READY__ = true;
+      animate();
+    })();
+  </script>
+</body>
+</html>

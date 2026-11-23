@@ -80,11 +80,14 @@ class RocketTelemetryWidget(QFrame):
         layout.addWidget(self.w_dps)
         layout.addWidget(self.w_bmp)
 
-        # İvme ve Jiroskop (Fotoğraftaki gibi)
+        # İvme, Jiroskop ve Oryantasyon (Pitch / Roll / Yaw)
         self.w_acc, self.val_acc = create_data_row("BMI088 İVME (AccX | AccY | AccZ)", "0.00 | 0.00 | 1.00 g")
         self.w_gyr, self.val_gyr = create_data_row("BMI088 JİROSKOP (GyrX | GyrY | GyrZ)", "0.0 | 0.0 | 0.0 °/s")
+        self.w_rpy, self.val_rpy = create_data_row("ORYANTASYON (Pitch | Roll | Yaw)", "+90.0° | +0.0° | +0.0°")
+        self.val_rpy.setStyleSheet(self.val_rpy.styleSheet() + " color: #38BDF8;")
         layout.addWidget(self.w_acc)
         layout.addWidget(self.w_gyr)
+        layout.addWidget(self.w_rpy)
 
         # Çift GPS Verileri
         self.w_neo_gps, self.val_neo_gps = create_data_row("NEO M9N GPS (Lat, Lng)", "-- , --")
@@ -118,6 +121,7 @@ class RocketTelemetryWidget(QFrame):
         self.val_bmp.setText(f"{data.bmp390_pressure:.2f} hPa")
         self.val_acc.setText(f"{data.acc_x:.2f} | {data.acc_y:.2f} | {data.acc_z:.2f} g")
         self.val_gyr.setText(f"{data.gyr_x:.1f} | {data.gyr_y:.1f} | {data.gyr_z:.1f} °/s")
+        self.val_rpy.setText(f"{data.pitch:+.1f}° | {data.roll:+.1f}° | {data.yaw:+.1f}°")
         self.val_neo_gps.setText(f"{data.neo_m9n_lat:.5f} | {data.neo_m9n_lng:.5f}")
         self.val_neo_stat.setText(data.neo_m9n_status)
         self.val_quec_gps.setText(f"{data.quectel_lat:.5f} | {data.quectel_lng:.5f}")

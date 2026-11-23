@@ -11,6 +11,7 @@ from typing import Callable, List, Optional
 import serial
 import serial.tools.list_ports
 
+from core.attitude_estimator import AttitudeEstimator
 from core.telemetry_model import RocketTelemetry, PayloadTelemetry
 
 
@@ -23,6 +24,7 @@ class SerialManager:
         self.thread: Optional[threading.Thread] = None
         self.start_time: Optional[float] = None
 
+        self.attitude_estimator = AttitudeEstimator()
         self.rocket_data = RocketTelemetry()
         self.payload_data = PayloadTelemetry()
 
@@ -40,6 +42,7 @@ class SerialManager:
             self.is_running = True
             self.start_time = time.time()
             self.rocket_data.flight_time = 0.0
+            self.attitude_estimator.reset()
             self.thread = threading.Thread(target=self._read_loop, daemon=True)
             self.thread.start()
             print(f"[Seri Port] {port_name} ({baudrate} baud) başarıyla bağlandı.")
@@ -77,13 +80,25 @@ class SerialManager:
                 print(f"[Seri Port Okuma Hatası]: {e}")
                 time.sleep(0.1)
 
+    def _update_attitude_from_imu(self):
+        """Ham ivme ve jiroskop verilerinden AHRS filtresiyle Pitch, Roll, Yaw hesaplar."""
+        r = self.rocket_data
+        roll, pitch, yaw = self.attitude_estimator.update(
+            r.acc_x, r.acc_y, r.acc_z,
+            r.gyr_x, r.gyr_y, r.gyr_z,
+            timestamp=r.timestamp,
+        )
+        r.roll = roll
+        r.pitch = pitch
+        r.yaw = yaw
+
     def _parse_line(self, line: str):
         """
         Gelen satırı ayrıştırır.
         1. GY-85 veya benzeri test formatı:
            't=13032 ms | A(g): -0.019 -0.055 0.749 | toplam=0.751 | G(dps): nan nan nan'
-           (virgüllü veya boşluklu)
-        2. Standart TEKNOFEST virgülle ayrılmış paket formatı (>=15 eleman)
+           (opsiyonel 'RPY: roll pitch yaw' veya 'Pitch:.. Roll:.. Yaw:..' etiketli)
+        2. Standart TEKNOFEST virgülle ayrılmış paket formatı (>=15 eleman; >=19 ise RPY dahil)
         3. 3 veya 6 elemanlı basit CSV ivme/gyro verisi
         """
         try:
@@ -100,7 +115,7 @@ class SerialManager:
             self.rocket_data.timestamp = time.time()
 
             # 1. GY-85 / İvmeölçer Etiketli Format Kontrolü (Virgül veya boşluk ayrımını destekler)
-            if "A(g):" in line or "A:" in line:
+            if "A(g):" in line or "A:" in line or "RPY:" in line:
                 a_match = re.search(r"A(?:\(g\))?:\s*([-\d.]+)[,\s]+([-\d.]+)[,\s]+([-\d.]+)", line)
                 if a_match:
                     self.rocket_data.acc_x = float(a_match.group(1))
@@ -120,6 +135,14 @@ class SerialManager:
                     self.rocket_data.gyr_x = 0.0 if "nan" in val_x else float(val_x)
                     self.rocket_data.gyr_y = 0.0 if "nan" in val_y else float(val_y)
                     self.rocket_data.gyr_z = 0.0 if "nan" in val_z else float(val_z)
+
+                rpy_match = re.search(r"RPY(?:\(deg\))?:\s*([-\d.]+)[,\s]+([-\d.]+)[,\s]+([-\d.]+)", line)
+                if rpy_match:
+                    self.rocket_data.roll = float(rpy_match.group(1))
+                    self.rocket_data.pitch = float(rpy_match.group(2))
+                    self.rocket_data.yaw = float(rpy_match.group(3))
+                else:
+                    self._update_attitude_from_imu()
 
                 self.rocket_data.packet_id += 1
                 if self.data_callback:
@@ -149,6 +172,12 @@ class SerialManager:
                 self.rocket_data.battery_voltage = float(parts[14])
                 if len(parts) > 15:
                     self.rocket_data.flight_state = parts[15]
+                if len(parts) >= 19:
+                    self.rocket_data.roll = float(parts[16])
+                    self.rocket_data.pitch = float(parts[17])
+                    self.rocket_data.yaw = float(parts[18])
+                else:
+                    self._update_attitude_from_imu()
 
                 if self.data_callback:
                     self.data_callback(self.rocket_data, self.payload_data)
@@ -164,6 +193,12 @@ class SerialManager:
                     self.rocket_data.gyr_x = float(parts[3])
                     self.rocket_data.gyr_y = float(parts[4])
                     self.rocket_data.gyr_z = float(parts[5])
+                if len(parts) >= 9:
+                    self.rocket_data.roll = float(parts[6])
+                    self.rocket_data.pitch = float(parts[7])
+                    self.rocket_data.yaw = float(parts[8])
+                else:
+                    self._update_attitude_from_imu()
                 self.rocket_data.packet_id += 1
                 if self.data_callback:
                     self.data_callback(self.rocket_data, self.payload_data)

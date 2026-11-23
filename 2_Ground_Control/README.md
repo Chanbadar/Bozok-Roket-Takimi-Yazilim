@@ -15,6 +15,9 @@ TEKNOFEST Orta İrtifa Roket Yarışması gereksinimlerine ve telemetri standart
   * Çift Basınç Sensör Eğrileri (DPS368 vs BMP390)
   * 3 Eksen İvme (AccX, AccY, AccZ ve Bileşke İvme)
   * Roket ve Görev Yükü Pil Seviyesi Grafikleri
+* **Canlı 3D Roket Duruşu (Three.js / WebGL — Çevrimdışı):**
+  * OpenRocket (`.ork`) tasarım dosyasından (`başarılı 3`) birebir 1:1 ölçekli 3D roket modeli oluşturur ve canlı **Pitch, Roll, Yaw** açılarını 60 FPS döndürür.
+  * Tek tıkla bağımsız pencereye ayırma (**Pop-out / 2. Monitör Modu**), manuel test sürgüleri ve harici `.ork` yükleme desteği.
 * **Canlı Harita & GPS İzleme:**
   * Roket ve Görev Yükü koordinatlarını harita üzerinde canlı takip, uçuş rotası izi (trail) ve fırlatma rampasına olan anlık mesafe hesabı.
 * **Uçuş Durum Çubuğu (State Machine):**
@@ -31,8 +34,8 @@ TEKNOFEST Orta İrtifa Roket Yarışması gereksinimlerine ve telemetri standart
 ## 🛠️ Kurulum ve Çalıştırma
 
 ### 1. Hızlı Başlatma (Windows)
-Proje kök dizinindeki veya `2_Ground_Control/` altındaki `run.bat` dosyasına çift tıklayın.  
-*(Eğer `.venv` ortamı yoksa veya eksik kütüphaneler varsa `run.bat` otomatik olarak sanal ortamı kurar, `requirements.txt` bağımlılıklarını eksiksiz yükler ve yer istasyonunu başlatır).*
+`2_Ground_Control/run.bat` dosyasına çift tıklayın.  
+*(İlk çalıştırmada `.venv` sanal ortamını otomatik kurar; `PySide6` (WebEngine dahil), `PyQtGraph`, `PySerial` ve `NumPy` paketlerini eksiksiz indirip yer istasyonunu başlatır).*
 
 ### 2. Manuel Kurulum (Terminal / PowerShell)
 Projeyi yeni `pull` veya `clone` ettiyseniz:

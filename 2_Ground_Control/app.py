@@ -22,6 +22,9 @@ from ui.main_window import MainWindow
 
 
 def main():
+    # QtWebEngine (3D Three.js + Harita) ve Pop-out pencere geçişleri için OpenGL bağlam paylaşımı
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+
     # Yüksek DPI ekranlar için optimizasyon
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough

@@ -13,13 +13,14 @@ import os
 from typing import Any, Dict, Optional
 
 from PySide6.QtCore import Qt, QUrl, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPen, QPolygonF
+from PySide6.QtGui import QBrush, QColor, QFont, QIcon, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import (
     QFileDialog, QFrame, QHBoxLayout, QLabel, QMainWindow,
     QMessageBox, QPushButton, QSlider, QVBoxLayout, QWidget,
 )
 
 from core.ork_parser import load_rocket_spec, parse_ork_file
+from ui.components.header_bar import load_rounded_logo
 
 try:
     from PySide6.QtWebEngineCore import QWebEngineSettings
@@ -134,7 +135,7 @@ class Fallback3DRocketView(QWidget):
         painter.drawText(10, h - 14, f"P:{self.pitch:+.1f}°  R:{self.roll:+.1f}°  Y:{self.yaw:+.1f}°")
         painter.setPen(QColor("#94A3B8"))
         painter.setFont(QFont("Segoe UI", 8, QFont.Weight.Bold))
-        painter.drawText(10, 18, f"{self.spec.get('name', 'BOZOK')} (2D/3D Yedek Görünüm)")
+        painter.drawText(10, 18, f"{self.spec.get('name', 'BOZALP')} (2D/3D Yedek Görünüm)")
 
 
 class Rocket3DPopoutWindow(QMainWindow):
@@ -144,7 +145,10 @@ class Rocket3DPopoutWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Bozok Roket Takımı - Canlı 3D Duruş Penceresi")
+        self.setWindowTitle("BOZALP - Canlı 3D Duruş Penceresi")
+        logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "assets", "bozalp_logo.jpeg"))
+        if os.path.isfile(logo_path):
+            self.setWindowIcon(QIcon(logo_path))
         self.resize(960, 720)
         self.setStyleSheet(
             "QMainWindow { background-color: #080D1A; color: #F8FAFC; }"
@@ -451,7 +455,14 @@ class Rocket3DWidget(QFrame):
         layout.setSpacing(6)
 
         bar = QHBoxLayout()
-        bar_title = QLabel("🚀 BOZOK ROKET TAKIMI — CANLI 3D DURUŞ (BAĞIMSIZ PENCERE)")
+        pop_logo = QLabel()
+        pop_pm = load_rounded_logo(size=26, radius=6)
+        if not pop_pm.isNull():
+            pop_logo.setPixmap(pop_pm)
+            pop_logo.setFixedSize(28, 28)
+            pop_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            bar.addWidget(pop_logo)
+        bar_title = QLabel("BOZALP — CANLI 3D DURUŞ (BAĞIMSIZ PENCERE)")
         bar_title.setStyleSheet("font-size: 13px; font-weight: 800; color: #00F0FF; letter-spacing: 0.6px;")
         bar.addWidget(bar_title)
         bar.addStretch(1)

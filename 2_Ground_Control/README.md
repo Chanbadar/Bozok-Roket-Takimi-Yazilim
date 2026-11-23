@@ -1,4 +1,4 @@
-# Bozok Roket Takımı - Yer İstasyonu Arayüzü (Ground Station)
+# BOZALP - Yer İstasyonu Arayüzü (Ground Station)
 Yozgat Bozok Üniversitesi Fizik ve Astronomi Topluluğu Roket Takımı Yazılım Reposu
 
 TEKNOFEST Orta İrtifa Roket Yarışması gereksinimlerine ve telemetri standartlarına uygun gerçek zamanlı masaüstü yer istasyonu yazılımı.

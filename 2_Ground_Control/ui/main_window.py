@@ -37,7 +37,10 @@ from ui.styles import DARK_THEME_QSS
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Bozok Roket Takımı - Yer İstasyonu")
+        self.setWindowTitle("BOZALP - Yer İstasyonu")
+        logo_path = os.path.join(_BASE_DIR, "assets", "bozalp_logo.jpeg")
+        if os.path.isfile(logo_path):
+            self.setWindowIcon(QIcon(logo_path))
         self.resize(1480, 880)
         self.setStyleSheet(DARK_THEME_QSS)
 

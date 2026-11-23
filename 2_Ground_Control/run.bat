@@ -1,11 +1,11 @@
 @echo off
 setlocal
 chcp 65001 >nul 2>&1
-title Bozok Roket Takimi - Yer Istasyonu
+title BOZALP - Yer Istasyonu
 cd /d "%~dp0"
 
 echo ===================================================================
-echo           BOZOK ROKET TAKIMI - YER ISTASYONU BASLATICI
+echo               BOZALP - YER ISTASYONU BASLATICI
 echo ===================================================================
 
 REM 1. UTF-8 ve modul/telemetri yollarini ayarla
@@ -87,9 +87,21 @@ if not errorlevel 1 goto :check_assets
 goto :install_error
 
 :check_assets
-echo [3/4] 3D model ve arayuz varliklari kontrol ediliyor...
+echo [3/4] 3D model, logo ve arayuz varliklari kontrol ediliyor...
+if not exist "assets" mkdir "assets"
+
 if not exist "assets\three.min.js" (
-    echo [UYARI]: assets\three.min.js bulunamadi. Lutfen repoyu eksiksiz pull edin.
+    echo [BILGI]: assets\three.min.js eksik, otomatik indiriliyor...
+    "%VENV_PY%" -c "import urllib.request; req=urllib.request.Request('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', headers={'User-Agent':'Mozilla/5.0'}); open(r'assets\three.min.js','wb').write(urllib.request.urlopen(req, timeout=20).read()); print('[OK]: three.min.js indirildi.')"
+)
+if not exist "assets\bozalp_logo.jpeg" (
+    if exist "..\..\Resimler\bozalp_logo.jpeg" copy /y "..\..\Resimler\bozalp_logo.jpeg" "assets\bozalp_logo.jpeg" >nul
+)
+if not exist "assets\bozok_rocket.ork" (
+    "%VENV_PY%" -c "import glob, shutil, os; matches=glob.glob(r'..\..\Tasarim\*.ork*'); matches and shutil.copy2(matches[0], r'assets\bozok_rocket.ork')" >nul 2>&1
+)
+if not exist "assets\bozalp_logo.jpeg" (
+    echo [UYARI]: assets\bozalp_logo.jpeg bulunamadi. Varsayilan ikon kullanilacak.
 )
 if not exist "assets\bozok_rocket.ork" (
     echo [UYARI]: assets\bozok_rocket.ork bulunamadi. Varsayilan 3D roket modeli kullanilacak.

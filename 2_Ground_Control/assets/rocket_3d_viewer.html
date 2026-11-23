@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bozok Roket Takımı - 3D Duruş Görünümü</title>
+  <title>BOZALP - 3D Duruş Görünümü</title>
   <script src="three.min.js"></script>
   <style>
     * {
@@ -208,7 +208,7 @@
 
   <div class="hud-top">
     <div class="model-chip" id="modelChip">
-      <span>BOZOK ORK</span> • Yükleniyor...
+      <span>BOZALP ORK</span> • Yükleniyor...
     </div>
     <div class="cam-controls">
       <button class="cam-btn active" id="btnIso" onclick="setCameraPreset('iso')" title="3/4 İzometrik görünüm">3D</button>
@@ -436,17 +436,17 @@
           ctx.fillStyle = '#FF6B4A';
           ctx.fillRect(0, 118, 22, 360);
 
-          // BOZOK dikey yazısı (iki karşı yüzde)
+          // BOZALP dikey yazısı (iki karşı yüzde)
           ctx.save();
           ctx.fillStyle = '#0F172A';
-          ctx.font = '900 44px Segoe UI, Arial, sans-serif';
+          ctx.font = '900 48px Segoe UI, Arial, sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           [256, 768].forEach(cx => {
             ctx.save();
             ctx.translate(cx, 290);
             ctx.rotate(-Math.PI / 2);
-            ctx.fillText('BOZOK ROKET', 0, 0);
+            ctx.fillText('BOZALP', 0, 0);
             ctx.restore();
           });
           ctx.restore();
@@ -745,7 +745,7 @@
         const chip = document.getElementById('modelChip');
         const diaMm = Math.round(maxR * 2000);
         chip.innerHTML =
-          '<span>' + escapeHtml(spec.name || 'BOZOK') + '</span> • ' +
+          '<span>' + escapeHtml(spec.name || 'BOZALP') + '</span> • ' +
           L.toFixed(2) + 'm • Ø' + diaMm + 'mm • ' + (totalFins || 3) + ' Kanatçık';
       }
 

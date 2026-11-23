@@ -17,6 +17,7 @@ if TELEMETRY_DIR not in sys.path:
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon
 
 from ui.main_window import MainWindow
 
@@ -31,7 +32,11 @@ def main():
     )
 
     app = QApplication(sys.argv)
-    app.setApplicationName("Bozok Roket Takımı - Yer İstasyonu")
+    app.setApplicationName("BOZALP - Yer İstasyonu")
+
+    logo_path = os.path.join(BASE_DIR, "assets", "bozalp_logo.jpeg")
+    if os.path.isfile(logo_path):
+        app.setWindowIcon(QIcon(logo_path))
 
     window = MainWindow()
     window.show()

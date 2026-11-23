@@ -193,7 +193,7 @@ class MapWidget(QFrame):
                     attribution: 'OpenStreetMap'
                 }).addTo(map);
 
-                var padMarker = L.marker([39.779593, 34.799597]).addTo(map).bindPopup("<b>BOZOK RAMPASI</b>");
+                var padMarker = L.marker([39.779593, 34.799597]).addTo(map).bindPopup("<b>BOZALP RAMPASI</b>");
 
                 var rocketMarker = L.circleMarker([39.779593, 34.799597], {
                     color: '#00F0FF', fillColor: '#00F0FF', fillOpacity: 0.9, radius: 8

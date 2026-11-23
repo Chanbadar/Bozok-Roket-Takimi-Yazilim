@@ -44,7 +44,16 @@ class FlightSimulator:
         self.payload_drift_x = 0.0
         self.payload_drift_y = 0.0
 
+        # Roket 3D Duruş Açıları (Derece)
+        self.roll = 0.0
+        self.pitch = 86.5   # Fırlatma rampası açısı (~86.5°, rüzgara karşı 3.5° eğim)
+        self.yaw = 42.0     # Fırlatma azimutu (KD yönü)
+        self._descent_time = 0.0
+
         self.rocket_data = RocketTelemetry()
+        self.rocket_data.roll = self.roll
+        self.rocket_data.pitch = self.pitch
+        self.rocket_data.yaw = self.yaw
         self.payload_data = PayloadTelemetry()
 
     def update_physics(self, dt: float):
@@ -52,6 +61,7 @@ class FlightSimulator:
         self.packet_id += 1
 
         t = self.time_elapsed
+        prev_roll, prev_pitch, prev_yaw = self.roll, self.pitch, self.yaw
 
         # 1. Faz: Rampa Bekleme (İlk 3 saniye)
         if t < 3.0:
@@ -61,7 +71,9 @@ class FlightSimulator:
             acc_z = 1.0 + random.uniform(-0.02, 0.02)
             acc_x = random.uniform(-0.02, 0.02)
             acc_y = random.uniform(-0.02, 0.02)
-            gyr_x = gyr_y = gyr_z = random.uniform(-0.5, 0.5)
+            self.pitch = 86.5 + random.uniform(-0.15, 0.15)
+            self.roll = random.uniform(-0.2, 0.2)
+            self.yaw = 42.0 + random.uniform(-0.15, 0.15)
 
         # 2. Faz: Motor Yanışı (3s - 6.8s)
         elif t < 3.0 + self.burn_time:
@@ -74,9 +86,14 @@ class FlightSimulator:
 
             self.vertical_speed += (thrust_acc * 9.81 - 9.81 - 0.0008 * self.vertical_speed**2) * dt
             self.current_altitude += self.vertical_speed * dt
-            gyr_x = random.uniform(-3.0, 3.0)
-            gyr_y = random.uniform(-3.0, 3.0)
-            gyr_z = 25.0 + random.uniform(-5.0, 5.0)  # Yuvarlanma (roll)
+
+            # Yanış sırasında aerodinamik kararlı yuvarlanma + hafif yerçekimi dönüşü
+            self.roll = (self.roll + (38.0 + 18.0 * burn_progress) * dt) % 360.0
+            if self.roll > 180.0:
+                self.roll -= 360.0
+            target_pitch = 86.5 - 8.5 * burn_progress + 0.6 * math.sin(t * 7.0)
+            self.pitch += (target_pitch - self.pitch) * min(1.0, dt * 6.0)
+            self.yaw = 42.0 + 2.5 * math.sin(burn_progress * math.pi)
 
         # 3. Faz: Serbest Tırmanış (Apogee'ye kadar)
         elif self.vertical_speed > 0:
@@ -90,22 +107,40 @@ class FlightSimulator:
             acc_z = decel / 9.81 + random.uniform(-0.1, 0.1)
             acc_x = random.uniform(-0.1, 0.1)
             acc_y = random.uniform(-0.1, 0.1)
-            gyr_x = random.uniform(-2.0, 2.0)
-            gyr_y = random.uniform(-2.0, 2.0)
-            gyr_z = random.uniform(-3.0, 3.0)
+
+            # Gerçekçi Gravity Turn: hız azaldıkça roket apogee'de yataya (0°) doğru eğilir
+            speed_ratio = max(0.0, min(1.0, self.vertical_speed / 240.0))
+            target_pitch = 78.0 * (speed_ratio ** 0.75)
+            self.pitch += (target_pitch - self.pitch) * min(1.0, dt * 3.5)
+            self.roll = (self.roll + (12.0 * speed_ratio + 2.5) * dt) % 360.0
+            if self.roll > 180.0:
+                self.roll -= 360.0
+            self.yaw = 44.5 + 3.0 * math.sin(t * 0.4)
 
         # 4. Faz: İniş (Drogue, Ayrılma ve Ana Paraşüt)
         else:
+            self._descent_time += dt
             if self.current_altitude > self.separation_altitude:
                 self.flight_state = "DROG_PARASUT"
                 target_speed = -22.0  # Drogue iniş hızı
+                # Apogee devrilmesi + drogue paraşütü altında sarkaç salınımı
+                target_pitch = -28.0 + 18.0 * math.sin(self._descent_time * 1.6)
+                roll_rate = 18.0 * math.cos(self._descent_time * 0.9)
+                yaw_rate = 12.0
             elif self.current_altitude > self.main_chute_altitude:
                 self.flight_state = "GOREV_YUKU_AYRILDI"
                 self.payload_separated = True
                 target_speed = -18.0
+                target_pitch = -42.0 + 14.0 * math.sin(self._descent_time * 1.9)
+                roll_rate = 14.0 * math.sin(self._descent_time * 0.7)
+                yaw_rate = 16.0
             else:
                 self.flight_state = "ANA_PARASUT"
                 target_speed = -6.5   # Ana paraşüt yumuşak iniş hızı
+                # Ana paraşüt açıldığında askı ipinde dikey/hafif eğimli sarkaç
+                target_pitch = 68.0 + 9.0 * math.sin(self._descent_time * 1.2)
+                roll_rate = 6.0 * math.sin(self._descent_time * 0.5)
+                yaw_rate = 7.0
 
             # Hız hedefine doğru yaklaş
             self.vertical_speed += (target_speed - self.vertical_speed) * 0.1
@@ -115,13 +150,33 @@ class FlightSimulator:
                 self.current_altitude = 0.0
                 self.vertical_speed = 0.0
                 self.flight_state = "KURTARMA_INIS"
+                # Yere yatmış sabit duruş
+                self.pitch += (2.0 - self.pitch) * min(1.0, dt * 4.0)
+            else:
+                self.pitch += (target_pitch - self.pitch) * min(1.0, dt * 2.5)
+                self.roll = (self.roll + roll_rate * dt) % 360.0
+                if self.roll > 180.0:
+                    self.roll -= 360.0
+                self.yaw = (self.yaw + yaw_rate * dt) % 360.0
+                if self.yaw > 180.0:
+                    self.yaw -= 360.0
 
             acc_z = 1.0 + random.uniform(-0.05, 0.05)
             acc_x = random.uniform(-0.05, 0.05)
             acc_y = random.uniform(-0.05, 0.05)
-            gyr_x = random.uniform(-1.0, 1.0)
-            gyr_y = random.uniform(-1.0, 1.0)
-            gyr_z = random.uniform(-1.0, 1.0)
+
+        # Jiroskop hızlarını açı türevleriyle tutarlı hesapla
+        def _angle_delta(curr: float, prev: float) -> float:
+            d = curr - prev
+            while d > 180.0:
+                d -= 360.0
+            while d < -180.0:
+                d += 360.0
+            return d
+
+        gyr_x = _angle_delta(self.pitch, prev_pitch) / max(dt, 1e-3) + random.uniform(-0.4, 0.4)
+        gyr_y = _angle_delta(self.yaw, prev_yaw) / max(dt, 1e-3) + random.uniform(-0.4, 0.4)
+        gyr_z = _angle_delta(self.roll, prev_roll) / max(dt, 1e-3) + random.uniform(-0.4, 0.4)
 
         # Maksimum irtifa takibi
         if self.current_altitude > self.max_altitude:
@@ -171,6 +226,10 @@ class FlightSimulator:
         self.rocket_data.gyr_x = round(gyr_x, 1)
         self.rocket_data.gyr_y = round(gyr_y, 1)
         self.rocket_data.gyr_z = round(gyr_z, 1)
+
+        self.rocket_data.roll = round(self.roll, 1)
+        self.rocket_data.pitch = round(self.pitch, 1)
+        self.rocket_data.yaw = round(self.yaw, 1)
 
         self.rocket_data.neo_m9n_lat = round(neo_lat, 6)
         self.rocket_data.neo_m9n_lng = round(neo_lng, 6)

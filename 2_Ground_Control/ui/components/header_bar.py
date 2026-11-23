@@ -3,10 +3,45 @@ Bozok Roket Takımı - Üst Kontrol Barı (Header Bar)
 Port seçimi, baudrate, bağlantı, simülasyon ve durum göstergelerini içerir.
 """
 
-from PySide6.QtCore import Signal
+import os
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import (
     QComboBox, QHBoxLayout, QLabel, QPushButton, QWidget
 )
+
+
+def load_rounded_logo(size: int = 40, radius: int = 8) -> QPixmap:
+    """assets/bozalp_logo.jpeg dosyasını yumuşak köşeli, yüksek DPI uyumlu pixmap olarak yükler."""
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    logo_path = os.path.join(base_dir, "assets", "bozalp_logo.jpeg")
+    if not os.path.isfile(logo_path):
+        return QPixmap()
+
+    src = QPixmap(logo_path)
+    if src.isNull():
+        return QPixmap()
+
+    scaled = src.scaled(
+        size, size,
+        Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+        Qt.TransformationMode.SmoothTransformation,
+    )
+    out = QPixmap(size, size)
+    out.fill(Qt.GlobalColor.transparent)
+
+    painter = QPainter(out)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    path = QPainterPath()
+    path.addRoundedRect(0, 0, size, size, radius, radius)
+    painter.setClipPath(path)
+    x_off = (size - scaled.width()) // 2
+    y_off = (size - scaled.height()) // 2
+    painter.drawPixmap(x_off, y_off, scaled)
+    painter.end()
+    return out
 
 
 class HeaderBar(QWidget):
@@ -33,18 +68,28 @@ class HeaderBar(QWidget):
         title_box = QWidget()
         title_layout = QHBoxLayout(title_box)
         title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(8)
+        title_layout.setSpacing(10)
 
-        logo_label = QLabel("🚀")
-        logo_label.setStyleSheet("font-size: 22px;")
+        logo_label = QLabel()
+        logo_pixmap = load_rounded_logo(size=42, radius=9)
+        if not logo_pixmap.isNull():
+            logo_label.setPixmap(logo_pixmap)
+            logo_label.setFixedSize(44, 44)
+            logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            logo_label.setStyleSheet(
+                "border: 1px solid #334155; border-radius: 10px; background-color: #040F1E;"
+            )
+        else:
+            logo_label.setText("🚀")
+            logo_label.setStyleSheet("font-size: 22px;")
         title_layout.addWidget(logo_label)
 
         text_box = QWidget()
         text_layout = QHBoxLayout(text_box)
         text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(4)
+        text_layout.setSpacing(6)
 
-        app_title = QLabel("BOZOK ROKET TAKIMI")
+        app_title = QLabel("BOZALP")
         app_title.setObjectName("AppTitle")
         sub_title = QLabel("• YER İSTASYONU")
         sub_title.setObjectName("AppSubtitle")
